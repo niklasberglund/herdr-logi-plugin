@@ -76,7 +76,7 @@ export function installStatusBridge(sdk: PluginSDK, actions: SlotAction[]) {
     try {
       snapshot = await getSnapshot();
     } catch {
-      snapshot = { workspaces: new Map(), agents: [] };
+      snapshot = { focusedWorkspaceId: undefined, workspaces: new Map(), agents: [], layouts: new Map() };
     }
     for (const action of actions) {
       const { status, label } = action;

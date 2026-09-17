@@ -1,9 +1,24 @@
 import { CommandAction } from '@logitech/plugin-sdk';
-import { focusAgent, focusWorkspace, type AgentStatus, type Snapshot } from './herdr';
+import {
+  focusPane,
+  focusWorkspace,
+  getSnapshot,
+  nextPaneInFocusedWorkspace,
+  type AgentStatus,
+  type Snapshot,
+} from './herdr';
 
 export const SLOT_COUNT = 9;
 
 export type TileStatus = AgentStatus | 'none';
+
+// Presses are applied one at a time so rapid taps each see the focus state
+// left by the previous one instead of racing on a stale snapshot.
+let pressQueue: Promise<void> = Promise.resolve();
+function enqueue(task: () => Promise<void>) {
+  pressQueue = pressQueue.then(task, task);
+  return pressQueue;
+}
 
 export abstract class SlotAction extends CommandAction {
   readonly name: string;
@@ -28,7 +43,7 @@ export class SpaceAction extends SlotAction {
   private workspaceId: string | undefined;
 
   constructor(slot: number) {
-    super('Space', slot, `Status of herdr workspace ${slot}; press to focus it`);
+    super('Space', slot, `Status of herdr workspace ${slot}; press to focus it, press again to cycle its panes`);
   }
 
   update({ workspaces }: Snapshot) {
@@ -38,8 +53,14 @@ export class SpaceAction extends SlotAction {
     this.label = workspace?.label || this.displayName;
   }
 
-  async onKeyDown() {
-    if (this.workspaceId) await focusWorkspace(this.workspaceId);
+  onKeyDown() {
+    const workspaceId = this.workspaceId;
+    if (!workspaceId) return;
+    return enqueue(async () => {
+      const nextPaneId = nextPaneInFocusedWorkspace(await getSnapshot(), workspaceId);
+      if (nextPaneId) await focusPane(nextPaneId);
+      else await focusWorkspace(workspaceId);
+    });
   }
 }
 
@@ -57,7 +78,9 @@ export class AgentAction extends SlotAction {
     this.label = agent?.terminal_title_stripped || this.displayName;
   }
 
-  async onKeyDown() {
-    if (this.paneId) await focusAgent(this.paneId);
+  onKeyDown() {
+    const paneId = this.paneId;
+    if (!paneId) return;
+    return enqueue(() => focusPane(paneId));
   }
 }
