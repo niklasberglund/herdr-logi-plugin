@@ -1,10 +1,11 @@
 import { PluginSDK } from '@logitech/plugin-sdk';
-import { HerdrSessionAction, SESSION_COUNT } from './src/session-actions';
+import { AgentAction, SLOT_COUNT, SpaceAction } from './src/actions';
 import { installStatusBridge } from './src/status-bridge';
 
 const pluginSDK = new PluginSDK();
 
-const actions = Array.from({ length: SESSION_COUNT }, (_, i) => new HerdrSessionAction(i + 1));
+const slots = Array.from({ length: SLOT_COUNT }, (_, i) => i + 1);
+const actions = [...slots.map((n) => new SpaceAction(n)), ...slots.map((n) => new AgentAction(n))];
 for (const action of actions) pluginSDK.registerAction(action);
 
 installStatusBridge(pluginSDK, actions);

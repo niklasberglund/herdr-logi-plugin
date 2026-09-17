@@ -1,13 +1,13 @@
 import type { PluginSDK } from '@logitech/plugin-sdk';
-import { getWorkspaces, type AgentStatus } from './herdr';
+import { getSnapshot, type Snapshot } from './herdr';
 import { circlePng, type Rgb } from './png';
-import { HerdrSessionAction } from './session-actions';
+import type { SlotAction, TileStatus } from './actions';
 
 const POLL_MS = 1000;
 const IMAGE_SIZE = 80;
 const MAX_LABEL_CHARS = 10;
 
-const STYLE: Record<AgentStatus | 'none', { rgb: Rgb; filled: boolean }> = {
+const STYLE: Record<TileStatus, { rgb: Rgb; filled: boolean }> = {
   blocked: { rgb: [230, 40, 40], filled: true },
   working: { rgb: [240, 180, 0], filled: true },
   done: { rgb: [0, 200, 80], filled: true },
@@ -16,8 +16,8 @@ const STYLE: Record<AgentStatus | 'none', { rgb: Rgb; filled: boolean }> = {
   none: { rgb: [70, 70, 70], filled: false },
 };
 
-const imageCache = new Map<string, string>();
-function imageFor(status: AgentStatus | 'none'): string {
+const imageCache = new Map<TileStatus, string>();
+function imageFor(status: TileStatus): string {
   let cached = imageCache.get(status);
   if (!cached) {
     const { rgb, filled } = STYLE[status];
@@ -31,15 +31,11 @@ function truncate(text: string): string {
   return text.length > MAX_LABEL_CHARS ? text.slice(0, MAX_LABEL_CHARS - 1) + '…' : text;
 }
 
-function labelFor(action: HerdrSessionAction): string {
-  return truncate(action.workspace?.label || `Session ${action.number}`);
-}
-
 // The SDK's GetActionImage handler always answers null and it has no hook for
 // runtime image/text updates, so we answer those requests ourselves on its
 // WebSocket client and push ActionImageChanged/ActionTextChanged events, which
 // the Plugin Service honours the same way it does for C# plugins.
-export function installStatusBridge(sdk: PluginSDK, actions: HerdrSessionAction[]) {
+export function installStatusBridge(sdk: PluginSDK, actions: SlotAction[]) {
   const internals = sdk as unknown as {
     _client: { onMessage(h: (data: Buffer) => void): void; sendMessage(m: unknown): void };
     _handleMessage(data: Buffer): Promise<void>;
@@ -52,12 +48,11 @@ export function installStatusBridge(sdk: PluginSDK, actions: HerdrSessionAction[
     const msg = JSON.parse(data.toString('utf8'));
     const action = msg.messageType === 'Request' ? byName.get(msg.parameters?.actionName) : undefined;
     if (action && msg.name === 'GetActionImage') {
-      const status = action.workspace?.agent_status ?? 'none';
-      reply(msg.id, msg.name, { image: imageFor(status) });
+      reply(msg.id, msg.name, { image: imageFor(action.status) });
       return;
     }
     if (action && msg.name === 'GetActionText') {
-      reply(msg.id, msg.name, { text: labelFor(action) });
+      reply(msg.id, msg.name, { text: truncate(action.label) });
       return;
     }
     fallback(data);
@@ -77,18 +72,17 @@ export function installStatusBridge(sdk: PluginSDK, actions: HerdrSessionAction[
   }
 
   async function poll() {
-    let workspaces: Awaited<ReturnType<typeof getWorkspaces>>;
+    let snapshot: Snapshot;
     try {
-      workspaces = await getWorkspaces();
+      snapshot = await getSnapshot();
     } catch {
-      workspaces = new Map();
+      snapshot = { workspaces: new Map(), agents: [] };
     }
     for (const action of actions) {
-      const prev = action.workspace;
-      const next = workspaces.get(action.number);
-      action.workspace = next;
-      if (prev?.agent_status !== next?.agent_status) notify('ActionImageChanged', action.name);
-      if (prev?.label !== next?.label) notify('ActionTextChanged', action.name);
+      const { status, label } = action;
+      action.update(snapshot);
+      if (status !== action.status) notify('ActionImageChanged', action.name);
+      if (label !== action.label) notify('ActionTextChanged', action.name);
     }
   }
 
