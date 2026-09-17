@@ -13,7 +13,7 @@ Add controls for herdr sessions 1-9 to the Logi Actions device:
 - The C# SDK has had this for years (`PluginDynamicCommand.GetCommandImage` + `ActionImageChanged()`), and the Plugin Service speaks the same protocol to Node plugins:
   - The service sends `GetActionImage` requests (`{pluginName, actionName, actionParameter}`) to the Node plugin. The SDK's handler is a stub that always replies `data: null` (the source map shows the intended reply type is `{ image: string }`).
   - The plugin can push an `ActionImageChanged` event; the service then immediately re-requests `GetActionImage`. `ActionTextChanged` exists in the SDK's enum too but is unwired.
-- Workaround, proven on the MX Creative Keypad: register a handler on the SDK's WebSocket client (`(sdk as any)._client.onMessage(...)`), answer `GetActionImage` with `{ image: <base64 PNG> }` (80x80 RGBA works), and push `ActionImageChanged` whenever status changes. See `src/experiment.ts`. Note: the SDK binds its own handler in the constructor, so overriding `_handleMessage` on the instance does not work; `client.onMessage()` does.
+- Workaround, proven on the MX Creative Keypad: register a handler on the SDK's WebSocket client (`(sdk as any)._client.onMessage(...)`), answer `GetActionImage` with `{ image: <base64 PNG> }` (80x80 RGBA works), and push `ActionImageChanged` whenever status changes. See `src/status-bridge.ts`. Note: the SDK binds its own handler in the constructor, so overriding `_handleMessage` on the instance does not work; `client.onMessage()` does.
 - Risk: relies on private SDK internals (`_client`, `_handleMessage`). Pin the SDK version and re-verify on upgrade.
 
 Other plugins doing live session tiles all use C#: `pffan91/claudewarp-keypad-mx` (Claude Code sessions in Warp — nearly identical concept), `rshankras/claude-console` (Claude Code in Terminal.app). `digitarald/mx-keypad-ahp-bridge` bypasses Options+ entirely over raw HID.
@@ -25,9 +25,9 @@ Other plugins doing live session tiles all use C#: `pffan91/claudewarp-keypad-mx
 - herdr's client runs inside iTerm2: `osascript -e 'tell application "iTerm" to activate'`.
 - Both can be shelled out to from the plugin process (`child_process.exec`), same pattern as `src/test-actions.ts`.
 
-## Implementation sketch
-1. Register 9 `CommandAction`s (`herdr_session_1` .. `herdr_session_9`).
-2. Poll `herdr api snapshot` (~1 s) or use its socket subscription events; keep status per workspace number; on change, push `ActionImageChanged` for that action.
-3. Answer `GetActionImage` per action with a PNG circle for the current status (generator in `src/experiment.ts`), plus the session number/label if useful.
-4. `onKeyDown()` for session N: activate iTerm, then `herdr workspace focus <workspace_id>`.
-5. No workspace with that number → gray/empty tile, no-op on press.
+## Implementation (done 2026-09-17)
+- `src/session-actions.ts` — 9 `CommandAction`s (`herdr_session_1` .. `herdr_session_9`); press activates iTerm and runs `herdr workspace focus`.
+- `src/status-bridge.ts` — polls `herdr api snapshot` every 1 s, answers `GetActionImage`/`GetActionText`, pushes `ActionImageChanged`/`ActionTextChanged` on change. Tile text is the workspace label truncated to 10 chars with `…`.
+- `src/png.ts` — dependency-free PNG circle renderer.
+- `src/herdr.ts` — herdr CLI wrapper; resolves the binary from `~/.local/bin` since the Plugin Service PATH lacks it.
+- No workspace with that number → dark gray outline, no-op on press.
