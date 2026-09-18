@@ -4,6 +4,7 @@ import {
   focusWorkspace,
   getSnapshot,
   nextPaneInFocusedWorkspace,
+  type Agent,
   type AgentStatus,
   type Snapshot,
 } from './herdr';
@@ -24,12 +25,13 @@ export abstract class SlotAction extends CommandAction {
   readonly name: string;
   displayName: string;
   description: string;
-  groupName = 'Herdr';
+  groupName: string;
   status: TileStatus = 'none';
   label: string;
 
-  constructor(kind: string, readonly slot: number, description: string) {
+  constructor(kind: string, readonly slot: number, description: string, groupName: string) {
     super();
+    this.groupName = groupName;
     this.name = `herdr_${kind.toLowerCase()}_${slot}`;
     this.displayName = `${kind} ${slot}`;
     this.label = '';
@@ -43,7 +45,12 @@ export class SpaceAction extends SlotAction {
   private workspaceId: string | undefined;
 
   constructor(slot: number) {
-    super('Space', slot, `Status of herdr workspace ${slot}; press to focus it, press again to cycle its panes`);
+    super(
+      'Space',
+      slot,
+      `Status of herdr workspace ${slot}; press to focus it, press again to cycle its panes`,
+      'Herdr Spaces',
+    );
   }
 
   update({ workspaces }: Snapshot) {
@@ -67,11 +74,20 @@ export class SpaceAction extends SlotAction {
 export class AgentAction extends SlotAction {
   private paneId: string | undefined;
 
-  constructor(slot: number) {
-    super('Agent', slot, `Status of the ${slot}th running herdr agent; press to focus it`);
+  constructor(
+    slot: number,
+    kind = 'Agent',
+    description = `Status of the ${slot}th running herdr agent; press to focus it`,
+    groupName = 'Herdr Agents',
+  ) {
+    super(kind, slot, description, groupName);
   }
 
   update({ agents }: Snapshot) {
+    this.apply(agents);
+  }
+
+  protected apply(agents: Agent[]) {
     const agent = agents[this.slot - 1];
     this.paneId = agent?.pane_id;
     this.status = agent?.agent_status ?? 'none';
@@ -82,5 +98,23 @@ export class AgentAction extends SlotAction {
     const paneId = this.paneId;
     if (!paneId) return;
     return enqueue(() => focusPane(paneId));
+  }
+}
+
+// The most recently active agents, so a handful of keys can cover a session
+// running more agents than there are tiles.
+export class RecentAgentAction extends AgentAction {
+  constructor(slot: number) {
+    super(
+      slot,
+      'Recent',
+      `Status of the ${slot}th most recently active herdr agent; press to focus it`,
+      'Herdr Recent Agents',
+    );
+    this.displayName = `Recent Agent ${slot}`;
+  }
+
+  update({ recent }: Snapshot) {
+    this.apply(recent);
   }
 }

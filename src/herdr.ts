@@ -3,6 +3,7 @@ import { createConnection } from 'net';
 import { homedir } from 'os';
 import { join } from 'path';
 import { promisify } from 'util';
+import { markUsed, rankByRecency } from './recency';
 
 const SOCKET_PATH = process.env.HERDR_SOCKET_PATH ?? join(homedir(), '.config/herdr/herdr.sock');
 
@@ -34,6 +35,7 @@ export type Snapshot = {
   focusedWorkspaceId: string | undefined;
   workspaces: Map<number, Workspace>;
   agents: Agent[];
+  recent: Agent[];
   layouts: Map<string, Layout>;
 };
 
@@ -67,7 +69,7 @@ export async function getSnapshot(): Promise<Snapshot> {
     (a, b) => (numberOf.get(a.workspace_id) ?? 0) - (numberOf.get(b.workspace_id) ?? 0) || a.pane_id.localeCompare(b.pane_id),
   );
   const layouts = new Map<string, Layout>((snapshot.layouts as Layout[]).map((l) => [l.tab_id, l]));
-  return { focusedWorkspaceId: snapshot.focused_workspace_id, workspaces, agents, layouts };
+  return { focusedWorkspaceId: snapshot.focused_workspace_id, workspaces, agents, recent: rankByRecency(agents), layouts };
 }
 
 const run = promisify(execFile);
@@ -82,6 +84,7 @@ export async function focusWorkspace(workspaceId: string): Promise<void> {
 }
 
 export async function focusPane(paneId: string): Promise<void> {
+  markUsed(paneId);
   activateTerminal();
   await request('pane.focus', { pane_id: paneId });
 }
