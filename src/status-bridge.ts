@@ -1,33 +1,38 @@
 import type { PluginSDK } from '@logitech/plugin-sdk';
 import { getSnapshot, type Snapshot } from './herdr';
-import { circlePng, type Rgb } from './png';
+import { circlePng, type CircleStyle, type Rgb } from './png';
 import type { SlotAction, TileStatus } from './actions';
 
 const POLL_MS = 1000;
 const IMAGE_SIZE = 80;
 const MAX_LABEL_CHARS = 10;
 
-const STYLE: Record<TileStatus, { rgb: Rgb; filled: boolean }> = {
-  blocked: { rgb: [230, 40, 40], filled: true },
-  working: { rgb: [240, 180, 0], filled: true },
-  done: { rgb: [0, 200, 80], filled: true },
-  idle: { rgb: [0, 200, 80], filled: false },
-  unknown: { rgb: [150, 150, 150], filled: false },
-  none: { rgb: [70, 70, 70], filled: false },
+const STYLE: Record<TileStatus, { rgb: Rgb; style: CircleStyle }> = {
+  blocked: { rgb: [230, 40, 40], style: 'filled' },
+  working: { rgb: [240, 180, 0], style: 'filled' },
+  done: { rgb: [0, 200, 80], style: 'filled' },
+  idle: { rgb: [0, 120, 48], style: 'outline' },
+  unknown: { rgb: [150, 150, 150], style: 'outline' },
+  none: { rgb: [70, 70, 70], style: 'dotted' },
 };
 
 const imageCache = new Map<TileStatus, string>();
 function imageFor(status: TileStatus): string {
   let cached = imageCache.get(status);
   if (!cached) {
-    const { rgb, filled } = STYLE[status];
-    cached = circlePng(IMAGE_SIZE, rgb, filled).toString('base64');
+    const { rgb, style } = STYLE[status];
+    cached = circlePng(IMAGE_SIZE, rgb, style).toString('base64');
     imageCache.set(status, cached);
   }
   return cached;
 }
 
-function truncate(text: string): string {
+// The Plugin Service falls back to the action's display name when the text is
+// empty or whitespace, so an unused slot answers with a zero-width space.
+const BLANK = '\u200B';
+
+function labelText(text: string): string {
+  if (!text) return BLANK;
   return text.length > MAX_LABEL_CHARS ? text.slice(0, MAX_LABEL_CHARS - 1) + '…' : text;
 }
 
@@ -52,7 +57,7 @@ export function installStatusBridge(sdk: PluginSDK, actions: SlotAction[]) {
       return;
     }
     if (action && msg.name === 'GetActionText') {
-      reply(msg.id, msg.name, { text: truncate(action.label) });
+      reply(msg.id, msg.name, { text: labelText(action.label) });
       return;
     }
     fallback(data);

@@ -23,7 +23,11 @@ function chunk(type: string, data: Buffer): Buffer {
 
 export type Rgb = [number, number, number];
 
-export function circlePng(size: number, rgb: Rgb, filled: boolean): Buffer {
+export type CircleStyle = 'filled' | 'outline' | 'dotted';
+
+const DOTS = 10;
+
+export function circlePng(size: number, rgb: Rgb, style: CircleStyle): Buffer {
   const stride = size * 4 + 1;
   const raw = Buffer.alloc(stride * size);
   const c = size / 2;
@@ -31,8 +35,14 @@ export function circlePng(size: number, rgb: Rgb, filled: boolean): Buffer {
   const stroke = size * 0.08;
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      const d = Math.hypot(x + 0.5 - c, y + 0.5 - c);
-      const inside = filled ? d <= r : Math.abs(d - r) <= stroke / 2;
+      const dx = x + 0.5 - c;
+      const dy = y + 0.5 - c;
+      const d = Math.hypot(dx, dy);
+      const onRing = Math.abs(d - r) <= stroke / 2;
+      // Each dot covers the first half of its slice of the circumference.
+      const phase = ((Math.atan2(dy, dx) / (2 * Math.PI)) * DOTS + DOTS) % 1;
+      const inside =
+        style === 'filled' ? d <= r : style === 'outline' ? onRing : onRing && phase < 0.5;
       const o = y * stride + 1 + x * 4;
       raw[o] = rgb[0];
       raw[o + 1] = rgb[1];

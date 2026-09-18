@@ -32,7 +32,7 @@ export abstract class SlotAction extends CommandAction {
     super();
     this.name = `herdr_${kind.toLowerCase()}_${slot}`;
     this.displayName = `${kind} ${slot}`;
-    this.label = this.displayName;
+    this.label = '';
     this.description = description;
   }
 
@@ -50,7 +50,7 @@ export class SpaceAction extends SlotAction {
     const workspace = workspaces.get(this.slot);
     this.workspaceId = workspace?.workspace_id;
     this.status = workspace?.agent_status ?? 'none';
-    this.label = workspace?.label || this.displayName;
+    this.label = workspace?.label || '';
   }
 
   onKeyDown() {
@@ -75,7 +75,7 @@ export class AgentAction extends SlotAction {
     const agent = agents[this.slot - 1];
     this.paneId = agent?.pane_id;
     this.status = agent?.agent_status ?? 'none';
-    this.label = agent?.terminal_title_stripped || this.displayName;
+    this.label = agent?.terminal_title_stripped || '';
   }
 
   onKeyDown() {
