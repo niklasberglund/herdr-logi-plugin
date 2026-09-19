@@ -11,6 +11,7 @@
     "build:prod": "npm run typecheck && cross-env NODE_ENV=production tsup",
     "check": "npm run typecheck && npm run check:version && npm test",
     "check:version": "node scripts/check-version.mjs",
+    "deck": "node scripts/render-deck.mjs",
     "icon": "node scripts/make-icon.mjs",
     "link": "logitoolkit link",
     "pack": "logitoolkit pack",

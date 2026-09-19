@@ -10,6 +10,16 @@ ring for one workspace or agent, its label underneath, updated live. Pressing
 a key brings your terminal to the front and focuses that workspace or pane in
 herdr.
 
+<p align="center">
+  <img src="docs/images/keypad.png" width="420"
+   alt="The keypad: fix-login waiting on you, refactor-auth and add-tests
+   working, migrate-db finished, review-pr idle, and three empty slots">
+</p>
+
+*The rings are the plugin's own key images, drawn by the code that answers the
+keypad, over a demo herdr session. `npm run deck -- --live` redraws them from
+whatever herdr is running right now.*
+
 It is a [Logi Actions SDK](https://logitech.github.io/actions-sdk-docs/)
 plugin written in TypeScript. Unlike other Node plugins it draws its key faces
 at runtime; see [docs/dynamic-tile-images.md](docs/dynamic-tile-images.md) for
@@ -28,6 +38,10 @@ of them onto keys.
 
 Ring colours match herdr's own status indicators:
 
+<img src="docs/images/tile-states.png" width="600"
+ alt="The seven tile states, left to right: blocked, working, done, idle,
+ unknown, empty and offline">
+
 | Ring | Status |
 |---|---|
 | Red, filled | **blocked**: the agent is waiting for you |
@@ -44,7 +58,7 @@ order until something happens to them.
 
 ## Requirements
 
-| | |
+| Requirement | Details |
 |---|---|
 | macOS | The plugin raises your terminal with `open -a`. Linux and Windows are not supported. |
 | herdr | 0.8.2 or newer, running locally. The plugin talks to `~/.config/herdr/herdr.sock` and was tested against socket protocol 20. |
@@ -149,7 +163,18 @@ npm run check        # typecheck, version consistency, tests
 npm test             # unit tests (node --test, no extra tooling)
 npm run build:pack   # production build and Herdr.lplug4 for distribution
 npm run icon         # regenerate package/metadata/Icon256x256.png
+npm run deck         # regenerate the README key images in docs/images
 ```
+
+`npm run deck` draws the README pictures with the plugin's own ring renderer,
+so they cannot drift from the key faces the device gets. The nine faces go
+behind `assets/keypad-frame.png`, a rendering of the keypad whose key windows
+are transparent, so its bezels and their gloss fall over them. The windows are
+found in that image's alpha channel rather than written down anywhere, so
+replacing the frame is enough to move the faces with it. Add `-- --live`
+to draw the herdr session running right now instead of the demo one. It needs
+an SVG rasteriser — `brew install librsvg` — and writes the SVG instead of the
+PNG if none is installed.
 
 Layout:
 
@@ -161,9 +186,10 @@ src/recency.ts           most-recently-active ordering for the Recent Agent keys
 src/status-bridge.ts     answers GetActionImage/GetActionText and pushes change events
 src/png.ts               dependency-free PNG ring renderer
 package/                 plugin manifest, icon, per-action icons
-scripts/                 icon generator and version check
+assets/                  keypad frame the README pictures are drawn into
+scripts/                 icon generator, README key-image renderer, version check
 tests/                   unit tests
-docs/                    how live key faces work from a Node plugin
+docs/                    how live key faces work from a Node plugin, README images
 ```
 
 Releases: bump the version in `package.json` and

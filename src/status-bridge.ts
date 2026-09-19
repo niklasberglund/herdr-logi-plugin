@@ -4,7 +4,7 @@ import { circlePng, type CircleStyle, type Rgb } from './png.ts';
 import type { SlotAction, TileStatus } from './actions.ts';
 
 const POLL_MS = 1000;
-const IMAGE_SIZE = 80;
+export const IMAGE_SIZE = 80;
 const MAX_LABEL_CHARS = 10;
 
 const STYLE: Record<TileStatus, { rgb: Rgb; style: CircleStyle }> = {
@@ -21,7 +21,7 @@ const STYLE: Record<TileStatus, { rgb: Rgb; style: CircleStyle }> = {
 // outside TileStatus, so it falls back to the `unknown` tile instead of
 // throwing. Each new name is reported once.
 const warnedStatuses = new Set<string>();
-function styleFor(status: TileStatus) {
+export function styleFor(status: TileStatus) {
   const style = STYLE[status];
   if (style) return style;
   if (!warnedStatuses.has(status)) {
