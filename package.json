@@ -1,23 +1,49 @@
 {
-  "name": "logi-actions-herdr",
+  "name": "herdr-logi-actions",
   "version": "0.1.0",
-  "description": "A plugin created with the Logi Plugin SDK",
+  "private": true,
+  "description": "Logi Actions plugin: live status tiles and one-press focus for herdr workspaces and coding agents on the Logitech MX Creative Keypad",
   "type": "module",
   "main": "./dist/index.mjs",
   "scripts": {
     "build": "npm run typecheck && tsup",
     "build:pack": "npm run build:prod && npm run pack",
     "build:prod": "npm run typecheck && cross-env NODE_ENV=production tsup",
-    "pack": "logitoolkit pack",
+    "check": "npm run typecheck && npm run check:version && npm test",
+    "check:version": "node scripts/check-version.mjs",
+    "icon": "node scripts/make-icon.mjs",
     "link": "logitoolkit link",
+    "pack": "logitoolkit pack",
+    "test": "node --test \"tests/**/*.test.ts\"",
     "typecheck": "tsc --noEmit",
     "unlink": "logitoolkit unlink",
     "watch": "npm run typecheck && tsup --watch"
   },
-  "author": "Your Name",
-  "license": "UNLICENSED",
+  "keywords": [
+    "herdr",
+    "logitech",
+    "logi-actions-sdk",
+    "logi-options-plus",
+    "mx-creative-console",
+    "mx-creative-keypad",
+    "loupedeck",
+    "claude-code",
+    "codex",
+    "coding-agents",
+    "plugin"
+  ],
+  "author": "Niklas Berglund",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/niklasberglund/herdr-logi-actions.git"
+  },
+  "homepage": "https://github.com/niklasberglund/herdr-logi-actions#readme",
+  "bugs": {
+    "url": "https://github.com/niklasberglund/herdr-logi-actions/issues"
+  },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=22.18.0"
   },
   "dependencies": {
     "@logitech/plugin-sdk": "0.1.1"
@@ -27,7 +53,6 @@
     "@types/node": "^22.18.8",
     "cross-env": "^7.0.3",
     "tsup": "^8.5.0",
-    "typescript": "^5.9.3",
-    "yaml": "^2.8.1"
+    "typescript": "^5.9.3"
   }
 }

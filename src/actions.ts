@@ -7,11 +7,18 @@ import {
   type Agent,
   type AgentStatus,
   type Snapshot,
-} from './herdr';
+} from './herdr.ts';
 
 export const SLOT_COUNT = 9;
 
-export type TileStatus = AgentStatus | 'none';
+// `none`: nothing occupies the slot. `offline`: herdr cannot be reached.
+export type TileStatus = AgentStatus | 'none' | 'offline';
+
+export function ordinal(n: number): string {
+  const suffixes = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (suffixes[(v - 20) % 10] ?? suffixes[v] ?? suffixes[0]);
+}
 
 // Presses are applied one at a time so rapid taps each see the focus state
 // left by the previous one instead of racing on a stale snapshot.
@@ -23,14 +30,16 @@ function enqueue(task: () => Promise<void>) {
 
 export abstract class SlotAction extends CommandAction {
   readonly name: string;
+  readonly slot: number;
   displayName: string;
   description: string;
   groupName: string;
   status: TileStatus = 'none';
   label: string;
 
-  constructor(kind: string, readonly slot: number, description: string, groupName: string) {
+  constructor(kind: string, slot: number, description: string, groupName: string) {
     super();
+    this.slot = slot;
     this.groupName = groupName;
     this.name = `herdr_${kind.toLowerCase()}_${slot}`;
     this.displayName = `${kind} ${slot}`;
@@ -77,7 +86,7 @@ export class AgentAction extends SlotAction {
   constructor(
     slot: number,
     kind = 'Agent',
-    description = `Status of the ${slot}th running herdr agent; press to focus it`,
+    description = `Status of the ${ordinal(slot)} running herdr agent; press to focus it`,
     groupName = 'Herdr Agents',
   ) {
     super(kind, slot, description, groupName);
@@ -108,7 +117,7 @@ export class RecentAgentAction extends AgentAction {
     super(
       slot,
       'Recent',
-      `Status of the ${slot}th most recently active herdr agent; press to focus it`,
+      `Status of the ${ordinal(slot)} most recently active herdr agent; press to focus it`,
       'Herdr Recent Agents',
     );
     this.displayName = `Recent Agent ${slot}`;

@@ -1,7 +1,7 @@
 import type { PluginSDK } from '@logitech/plugin-sdk';
-import { getSnapshot, type Snapshot } from './herdr';
-import { circlePng, type CircleStyle, type Rgb } from './png';
-import type { SlotAction, TileStatus } from './actions';
+import { EMPTY_SNAPSHOT, getSnapshot, type Snapshot } from './herdr.ts';
+import { circlePng, type CircleStyle, type Rgb } from './png.ts';
+import type { SlotAction, TileStatus } from './actions.ts';
 
 const POLL_MS = 1000;
 const IMAGE_SIZE = 80;
@@ -14,13 +14,28 @@ const STYLE: Record<TileStatus, { rgb: Rgb; style: CircleStyle }> = {
   idle: { rgb: [0, 120, 48], style: 'outline' },
   unknown: { rgb: [150, 150, 150], style: 'outline' },
   none: { rgb: [70, 70, 70], style: 'dotted' },
+  offline: { rgb: [140, 50, 50], style: 'dotted' },
 };
 
+// A status herdr gained after this plugin was written reaches us as a string
+// outside TileStatus, so it falls back to the `unknown` tile instead of
+// throwing. Each new name is reported once.
+const warnedStatuses = new Set<string>();
+function styleFor(status: TileStatus) {
+  const style = STYLE[status];
+  if (style) return style;
+  if (!warnedStatuses.has(status)) {
+    warnedStatuses.add(status);
+    console.warn(`herdr reported agent status '${status}', which this plugin does not know; showing it as unknown`);
+  }
+  return STYLE.unknown;
+}
+
 const imageCache = new Map<TileStatus, string>();
-function imageFor(status: TileStatus): string {
+export function imageFor(status: TileStatus): string {
   let cached = imageCache.get(status);
   if (!cached) {
-    const { rgb, style } = STYLE[status];
+    const { rgb, style } = styleFor(status);
     cached = circlePng(IMAGE_SIZE, rgb, style).toString('base64');
     imageCache.set(status, cached);
   }
@@ -29,29 +44,53 @@ function imageFor(status: TileStatus): string {
 
 // The Plugin Service falls back to the action's display name when the text is
 // empty or whitespace, so an unused slot answers with a zero-width space.
-const BLANK = '\u200B';
+const BLANK = '​';
 
-function labelText(text: string): string {
+export function labelText(text: string): string {
   if (!text) return BLANK;
-  return text.length > MAX_LABEL_CHARS ? text.slice(0, MAX_LABEL_CHARS - 1) + '…' : text;
+  const chars = Array.from(text);
+  return chars.length > MAX_LABEL_CHARS ? chars.slice(0, MAX_LABEL_CHARS - 1).join('') + '…' : text;
 }
+
+type Client = { onMessage(handler: (data: Buffer) => void): void; sendMessage(message: unknown): void };
+type Internals = { _client?: Partial<Client>; _handleMessage?(data: Buffer): Promise<void> };
 
 // The SDK's GetActionImage handler always answers null and it has no hook for
 // runtime image/text updates, so we answer those requests ourselves on its
 // WebSocket client and push ActionImageChanged/ActionTextChanged events, which
 // the Plugin Service honours the same way it does for C# plugins.
+// See docs/dynamic-tile-images.md.
 export function installStatusBridge(sdk: PluginSDK, actions: SlotAction[]) {
-  const internals = sdk as unknown as {
-    _client: { onMessage(h: (data: Buffer) => void): void; sendMessage(m: unknown): void };
-    _handleMessage(data: Buffer): Promise<void>;
-  };
+  const notify = hookMessages(sdk as unknown as Internals, actions);
+  startPolling(actions, notify);
+}
+
+type Notify = (name: 'ActionImageChanged' | 'ActionTextChanged', actionName: string) => void;
+
+function hookMessages(internals: Internals, actions: SlotAction[]): Notify {
   const client = internals._client;
-  const fallback = internals._handleMessage.bind(sdk);
+  if (
+    typeof client?.onMessage !== 'function' ||
+    typeof client.sendMessage !== 'function' ||
+    typeof internals._handleMessage !== 'function'
+  ) {
+    console.error(
+      'Logi Plugin SDK internals have changed; live tile images are disabled. Pin @logitech/plugin-sdk to 0.1.1.',
+    );
+    return () => {};
+  }
+  const send = client.sendMessage.bind(client);
+  const fallback = internals._handleMessage.bind(internals);
   const byName = new Map(actions.map((a) => [a.name, a]));
 
   client.onMessage((data) => {
-    const msg = JSON.parse(data.toString('utf8'));
-    const action = msg.messageType === 'Request' ? byName.get(msg.parameters?.actionName) : undefined;
+    let msg: { id: number; name: string; messageType: string; parameters?: { actionName?: string } };
+    try {
+      msg = JSON.parse(data.toString('utf8'));
+    } catch {
+      return void fallback(data);
+    }
+    const action = msg.messageType === 'Request' ? byName.get(msg.parameters?.actionName ?? '') : undefined;
     if (action && msg.name === 'GetActionImage') {
       reply(msg.id, msg.name, { image: imageFor(action.status) });
       return;
@@ -60,36 +99,47 @@ export function installStatusBridge(sdk: PluginSDK, actions: SlotAction[]) {
       reply(msg.id, msg.name, { text: labelText(action.label) });
       return;
     }
-    fallback(data);
+    void fallback(data);
   });
 
   function reply(id: number, name: string, data: unknown) {
-    client.sendMessage({ id, name, messageType: 'Response', data, failed: false, errorMessage: '', errorCode: 0 });
+    send({ id, name, messageType: 'Response', data, failed: false, errorMessage: '', errorCode: 0 });
   }
 
-  function notify(name: 'ActionImageChanged' | 'ActionTextChanged', actionName: string) {
-    client.sendMessage({
+  return (name, actionName) => {
+    send({
       id: 0,
       name,
       messageType: 'Event',
       parameters: { pluginName: process.env.LPS_PLUGIN_NAME, actionName, actionParameter: null },
     });
-  }
+  };
+}
+
+// Each poll schedules the next one only after it has finished, so a slow herdr
+// never produces overlapping polls that could apply snapshots out of order.
+function startPolling(actions: SlotAction[], notify: Notify) {
+  let online = true;
 
   async function poll() {
-    let snapshot: Snapshot;
+    let snapshot: Snapshot | undefined;
     try {
       snapshot = await getSnapshot();
-    } catch {
-      snapshot = { focusedWorkspaceId: undefined, workspaces: new Map(), agents: [], recent: [], layouts: new Map() };
+      if (!online) console.info('herdr is reachable again');
+      online = true;
+    } catch (error) {
+      if (online) console.warn(`herdr is unreachable, tiles show offline: ${(error as Error).message}`);
+      online = false;
     }
     for (const action of actions) {
       const { status, label } = action;
-      action.update(snapshot);
+      action.update(snapshot ?? EMPTY_SNAPSHOT);
+      if (!snapshot) action.status = 'offline';
       if (status !== action.status) notify('ActionImageChanged', action.name);
       if (label !== action.label) notify('ActionTextChanged', action.name);
     }
+    setTimeout(poll, POLL_MS);
   }
 
-  setInterval(poll, POLL_MS);
+  void poll();
 }

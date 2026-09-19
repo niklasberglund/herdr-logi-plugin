@@ -1,0 +1,34 @@
+# Tag a commit `vX.Y.Z` (matching package.json and LoupedeckPackage.yaml) to
+# build the package and publish it as a GitHub Release asset named
+# Herdr_X.Y.Z.lplug4, Logitech's recommended filename.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Check that the tag matches the declared versions
+        run: node scripts/check-version.mjs "${GITHUB_REF_NAME#v}"
+      - run: npm run check
+      - run: npm run build:pack
+      - name: Name the package
+        run: mv Herdr.lplug4 "Herdr_${GITHUB_REF_NAME#v}.lplug4"
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "Herdr_${GITHUB_REF_NAME#v}.lplug4" \
+            --title "$GITHUB_REF_NAME" --generate-notes

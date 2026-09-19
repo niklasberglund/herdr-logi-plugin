@@ -1,6 +1,6 @@
 import { PluginSDK } from '@logitech/plugin-sdk';
-import { AgentAction, RecentAgentAction, SLOT_COUNT, SpaceAction } from './src/actions';
-import { installStatusBridge } from './src/status-bridge';
+import { AgentAction, RecentAgentAction, SLOT_COUNT, SpaceAction } from './src/actions.ts';
+import { installStatusBridge } from './src/status-bridge.ts';
 
 const pluginSDK = new PluginSDK();
 

@@ -1,3 +1,4 @@
 node_modules/
 dist/
 *.lplug4
+.DS_Store
