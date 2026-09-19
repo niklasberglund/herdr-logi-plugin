@@ -61,13 +61,20 @@ type Internals = { _client?: Partial<Client>; _handleMessage?(data: Buffer): Pro
 // the Plugin Service honours the same way it does for C# plugins.
 // See docs/dynamic-tile-images.md.
 export function installStatusBridge(sdk: PluginSDK, actions: SlotAction[]) {
+  // Without this the Plugin Service drops every update event, so tiles keep
+  // their first face for the whole session with nothing else going wrong.
+  if (!process.env.LPS_PLUGIN_NAME) {
+    console.error(
+      'LPS_PLUGIN_NAME is not set; the Plugin Service ignores image and text update events without it, so tiles will not refresh.',
+    );
+  }
   const notify = hookMessages(sdk as unknown as Internals, actions);
   startPolling(actions, notify);
 }
 
 type Notify = (name: 'ActionImageChanged' | 'ActionTextChanged', actionName: string) => void;
 
-function hookMessages(internals: Internals, actions: SlotAction[]): Notify {
+export function hookMessages(internals: Internals, actions: SlotAction[]): Notify {
   const client = internals._client;
   if (
     typeof client?.onMessage !== 'function' ||
@@ -116,8 +123,38 @@ function hookMessages(internals: Internals, actions: SlotAction[]): Notify {
   };
 }
 
+// An action whose snapshot cannot be applied is left showing what it showed
+// before. Each failure is reported once per action, because the poll runs every
+// second and would otherwise fill the log with the same line.
+const warnedActions = new Set<string>();
+
+// Never throws. A single bad action must not stop the remaining slots from
+// updating, nor take down the poll loop that schedules the next run.
+export function applySnapshot(actions: SlotAction[], snapshot: Snapshot | undefined, notify: Notify) {
+  for (const action of actions) {
+    try {
+      const { status, label } = action;
+      action.update(snapshot ?? EMPTY_SNAPSHOT);
+      if (!snapshot) action.status = 'offline';
+      if (status !== action.status) notify('ActionImageChanged', action.name);
+      if (label !== action.label) notify('ActionTextChanged', action.name);
+    } catch (error) {
+      if (!warnedActions.has(action.name)) {
+        warnedActions.add(action.name);
+        console.error(
+          `tile '${action.name}' could not be updated and keeps its last state: ${(error as Error).message}`,
+        );
+      }
+    }
+  }
+}
+
 // Each poll schedules the next one only after it has finished, so a slow herdr
 // never produces overlapping polls that could apply snapshots out of order.
+//
+// This keeps running even when hookMessages found no client to hook: `update()`
+// is also what gives each action the workspace or pane its `onKeyDown` focuses,
+// so without it the keys would go stale as well as static.
 function startPolling(actions: SlotAction[], notify: Notify) {
   let online = true;
 
@@ -131,14 +168,11 @@ function startPolling(actions: SlotAction[], notify: Notify) {
       if (online) console.warn(`herdr is unreachable, tiles show offline: ${(error as Error).message}`);
       online = false;
     }
-    for (const action of actions) {
-      const { status, label } = action;
-      action.update(snapshot ?? EMPTY_SNAPSHOT);
-      if (!snapshot) action.status = 'offline';
-      if (status !== action.status) notify('ActionImageChanged', action.name);
-      if (label !== action.label) notify('ActionTextChanged', action.name);
+    try {
+      applySnapshot(actions, snapshot, notify);
+    } finally {
+      setTimeout(poll, POLL_MS);
     }
-    setTimeout(poll, POLL_MS);
   }
 
   void poll();
