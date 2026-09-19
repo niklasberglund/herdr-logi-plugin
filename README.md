@@ -1,7 +1,7 @@
-# Herdr for Logi Actions
+# Herdr plugin for the Logitech MX Keypad
 
 **Live status of your [herdr](https://herdr.dev) workspaces and coding agents on the
-Logitech MX Creative Keypad. Press a key to jump to one.**
+Logitech MX Keypad. Press a key to jump to one.**
 
 herdr runs your AI coding agents (Claude Code, Codex, OpenCode and others) in
 managed terminal panes and exposes their state over a local socket. This
@@ -63,7 +63,7 @@ order until something happens to them.
 | macOS | The plugin raises your terminal with `open -a`. Linux and Windows are not supported. |
 | herdr | 0.8.2 or newer, running locally. The plugin talks to `~/.config/herdr/herdr.sock` and was tested against socket protocol 20. |
 | Logi Options+ | With the Logi Plugin Service 6.1 or newer, which ships with Options+. |
-| Device | Logitech MX Creative Keypad. Other Logi Actions devices with key displays may work but are untested. |
+| Device | Logitech MX Keypad. Other Logi Actions devices with key displays, such as the MX Creative Console's keypad, may work but are untested. |
 | Node.js 22.18+ | Only to build from source. |
 
 ## Install
@@ -71,16 +71,16 @@ order until something happens to them.
 ### From a release
 
 1. Download `Herdr_<version>.lplug4` from the
-   [latest release](https://github.com/niklasberglund/herdr-logi-actions/releases/latest).
+   [latest release](https://github.com/niklasberglund/herdr-logi-plugin/releases/latest).
 2. Double-click it. Logi Options+ installs the plugin.
-3. In Options+, select the MX Creative Keypad, open **All actions**, and drag
+3. In Options+, select the MX Keypad, open **All actions**, and drag
    **Herdr** actions onto keys.
 
 ### From source
 
 ```sh
-git clone https://github.com/niklasberglund/herdr-logi-actions.git
-cd herdr-logi-actions
+git clone https://github.com/niklasberglund/herdr-logi-plugin.git
+cd herdr-logi-plugin
 npm install
 npm run build
 npm run link
@@ -122,7 +122,7 @@ socket, `HERDR_LOGI_CONFIG` overrides the config file path.
 ## How it works
 
 ```
-MX Creative Keypad ── Logi Plugin Service ──WebSocket── this plugin (Node.js)
+MX Keypad ─────────── Logi Plugin Service ──WebSocket── this plugin (Node.js)
                                                             │ every second:
                                                             │   session.snapshot
                                                             │ on press:
@@ -203,6 +203,6 @@ Releases: bump the version in `package.json` and
 [@logitech/plugin-sdk](https://www.npmjs.com/package/@logitech/plugin-sdk) and
 [ws](https://github.com/websockets/ws), both MIT licensed.
 
-Logitech, Logi, MX Creative Console and MX Creative Keypad are trademarks of
+Logitech, Logi, MX Keypad and MX Creative Console are trademarks of
 Logitech International S.A. This is an independent community project and is
 not affiliated with or endorsed by Logitech or the herdr project.

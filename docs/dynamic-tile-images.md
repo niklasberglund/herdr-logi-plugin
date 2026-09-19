@@ -27,7 +27,7 @@ answers them itself in `src/status-bridge.ts`.
 2. For a `GetActionImage` request aimed at one of our actions, reply with
    `{ id, name, messageType: 'Response', data: { image: <base64 PNG> }, failed:
    false, errorMessage: '', errorCode: 0 }`. An 80x80 RGBA PNG renders cleanly
-   on the MX Creative Keypad. Reply to `GetActionText` with `{ text }`.
+   on the MX Keypad. Reply to `GetActionText` with `{ text }`.
 3. Pass every other message to the SDK's original `_handleMessage`.
 4. When a tile's state changes, send an `ActionImageChanged` or
    `ActionTextChanged` event: `{ id: 0, name, messageType: 'Event', parameters:

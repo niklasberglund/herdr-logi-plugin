@@ -2,7 +2,7 @@
   "name": "herdr-logi-actions",
   "version": "0.1.0",
   "private": true,
-  "description": "Logi Actions plugin: live status tiles and one-press focus for herdr workspaces and coding agents on the Logitech MX Creative Keypad",
+  "description": "Logi Actions plugin: live status tiles and one-press focus for herdr workspaces and coding agents on the Logitech MX Keypad",
   "type": "module",
   "main": "./dist/index.mjs",
   "scripts": {
@@ -25,6 +25,7 @@
     "logitech",
     "logi-actions-sdk",
     "logi-options-plus",
+    "mx-keypad",
     "mx-creative-console",
     "mx-creative-keypad",
     "loupedeck",
@@ -37,11 +38,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/niklasberglund/herdr-logi-actions.git"
+    "url": "https://github.com/niklasberglund/herdr-logi-plugin.git"
   },
-  "homepage": "https://github.com/niklasberglund/herdr-logi-actions#readme",
+  "homepage": "https://github.com/niklasberglund/herdr-logi-plugin#readme",
   "bugs": {
-    "url": "https://github.com/niklasberglund/herdr-logi-actions/issues"
+    "url": "https://github.com/niklasberglund/herdr-logi-plugin/issues"
   },
   "engines": {
     "node": ">=22.18.0"

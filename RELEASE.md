@@ -7,10 +7,8 @@ release. Tick items off as they are done.
 
 ### Repository
 
-- [ ] Rename the local folder to `herdr-logi-actions`, then run `npm run link`
-      again (the dev link points at the current path).
-- [ ] Create `github.com/niklasberglund/herdr-logi-actions` and add it as the
-      remote. The manifest and README URLs already assume that name.
+- [x] Create `github.com/niklasberglund/herdr-logi-plugin` and add it as the
+      remote. The manifest and README URLs match that name.
 - [ ] Commit the review changes and push. Confirm the CI workflow passes on
       GitHub.
 - [ ] Add repo topics: `herdr`, `logitech`, `logi-actions-sdk`,

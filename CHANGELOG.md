@@ -24,5 +24,5 @@ All notable changes to this project are documented here. The format follows
 - `~/.config/herdr-logi-actions/config.json` with `terminalApp` to override
   the detected terminal or disable the activation step.
 
-[Unreleased]: https://github.com/niklasberglund/herdr-logi-actions/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/niklasberglund/herdr-logi-actions/releases/tag/v0.1.0
+[Unreleased]: https://github.com/niklasberglund/herdr-logi-plugin/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/niklasberglund/herdr-logi-plugin/releases/tag/v0.1.0
