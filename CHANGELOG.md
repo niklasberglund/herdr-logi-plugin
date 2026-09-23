@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-23
+
+### Changed
+
+- Declare the MX Keypad (`MxCreativeKeypad`) as the supported device.
+
 ## [0.1.0] - 2026-09-23
 
 ### Added
@@ -24,5 +30,6 @@ All notable changes to this project are documented here. The format follows
 - `~/.config/herdr-logi-plugin/config.json` with `terminalApp` to override
   the detected terminal or disable the activation step.
 
-[Unreleased]: https://github.com/niklasberglund/herdr-logi-plugin/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/niklasberglund/herdr-logi-plugin/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/niklasberglund/herdr-logi-plugin/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/niklasberglund/herdr-logi-plugin/releases/tag/v0.1.0

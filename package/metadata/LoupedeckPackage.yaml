@@ -9,7 +9,7 @@ displayName: Herdr Agents
 description: Live status tiles and one-press focus for herdr workspaces and coding agents on the MX Keypad.
 
 # Keep in sync with package.json (checked by `npm run check:version`).
-version: 0.1.0
+version: 0.1.1
 
 author: Niklas Berglund
 copyright: Copyright © 2026 Niklas Berglund
@@ -23,6 +23,11 @@ entryPoint: index.mjs
 # herdr socket under ~/.config. Omitting pluginFolderWin marks Windows as
 # unsupported.
 pluginFolderMac: .
+
+# The MX Keypad is the MX Creative Keypad hardware (USB 046d:c354) relaunched
+# for developers; the Plugin Service knows it as MxCreativeKeypad.
+supportedDevices:
+    - MxCreativeKeypad
 
 pluginCapabilities:
 
