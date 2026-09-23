@@ -21,7 +21,7 @@ All notable changes to this project are documented here. The format follows
   a press raises Terminal, iTerm, Ghostty, WezTerm, kitty, Warp, Alacritty or
   any other macOS terminal without configuration. Falls back to a known
   terminal that is running, then to one that is installed.
-- `~/.config/herdr-logi-actions/config.json` with `terminalApp` to override
+- `~/.config/herdr-logi-plugin/config.json` with `terminalApp` to override
   the detected terminal or disable the activation step.
 
 [Unreleased]: https://github.com/niklasberglund/herdr-logi-plugin/compare/v0.1.0...HEAD

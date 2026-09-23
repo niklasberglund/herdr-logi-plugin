@@ -5,7 +5,7 @@ type: plugin4
 # Immutable identifier once published to the marketplace. Also names the log
 # file (Herdr.log) and the reload deep link (loupedeck://plugin/Herdr/reload).
 name: Herdr
-displayName: Herdr
+displayName: Herdr Agents
 description: Live status tiles and one-press focus for herdr workspaces and coding agents on the MX Keypad.
 
 # Keep in sync with package.json (checked by `npm run check:version`).
@@ -18,6 +18,11 @@ minimumLoupedeckVersion: 6.1
 pluginType: remote
 pluginRuntime: nodejs
 entryPoint: index.mjs
+
+# macOS only: the plugin raises the terminal with `open -a` and reads the
+# herdr socket under ~/.config. Omitting pluginFolderWin marks Windows as
+# unsupported.
+pluginFolderMac: .
 
 pluginCapabilities:
 

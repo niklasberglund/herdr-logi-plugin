@@ -170,6 +170,17 @@ test('an error reply rejects', async () => {
   await assert.rejects(request('pane.focus'), /not_found/);
 });
 
+test('a multi-byte character split across chunks arrives intact', async () => {
+  behaviour = (socket, line) => {
+    const { id } = JSON.parse(line);
+    const reply = Buffer.from(JSON.stringify({ id, result: { title: '✳ fix-login' } }) + '\n');
+    const split = reply.indexOf(Buffer.from('✳')) + 1;
+    socket.write(reply.subarray(0, split));
+    setTimeout(() => socket.end(reply.subarray(split)), 20);
+  };
+  assert.deepEqual(await request('session.snapshot'), { title: '✳ fix-login' });
+});
+
 test('a connection closed without a reply rejects instead of hanging', async () => {
   behaviour = (socket) => socket.end();
   await assert.rejects(request('session.snapshot'), /closed before a response/);

@@ -27,7 +27,7 @@ release. Tick items off as they are done.
 - [ ] Attach herdr from a second terminal (Terminal.app is always available)
       and confirm a press raises that terminal without configuration. Then
       test the `terminalApp` override and the empty-string opt-out in
-      `~/.config/herdr-logi-actions/config.json`.
+      `~/.config/herdr-logi-plugin/config.json`.
 - [ ] Install the packed `Herdr.lplug4` by double-clicking, with the dev link
       removed (`npm run unlink`), and confirm the installed copy works on its
       own. Then uninstall it from Options+ and relink for development.
@@ -57,7 +57,7 @@ release. Tick items off as they are done.
       deferred for now. Needs: accept the developer agreement, hardware-tested
       package named `Herdr_<version>.lplug4`, valid `licenseUrl`,
       `supportPageUrl` and `homePageUrl`, and a short privacy statement (the
-      README's "How it works" section already states no data leaves the
+      README's "Privacy" section already states no data leaves the
       machine). Review takes about ten working days.
 
 - [ ] Decide whether to build remote herdr support. Scoped in

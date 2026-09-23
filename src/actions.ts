@@ -58,7 +58,7 @@ export class SpaceAction extends SlotAction {
       'Space',
       slot,
       `Status of herdr workspace ${slot}; press to focus it, press again to cycle its panes`,
-      'Herdr Spaces',
+      'Spaces',
     );
   }
 
@@ -87,7 +87,7 @@ export class AgentAction extends SlotAction {
     slot: number,
     kind = 'Agent',
     description = `Status of the ${ordinal(slot)} running herdr agent; press to focus it`,
-    groupName = 'Herdr Agents',
+    groupName = 'Agents',
   ) {
     super(kind, slot, description, groupName);
   }
@@ -118,7 +118,7 @@ export class RecentAgentAction extends AgentAction {
       slot,
       'Recent',
       `Status of the ${ordinal(slot)} most recently active herdr agent; press to focus it`,
-      'Herdr Recent Agents',
+      'Recent Agents',
     );
     this.displayName = `Recent Agent ${slot}`;
   }

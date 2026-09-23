@@ -34,7 +34,7 @@ In both cases the keypad shows the local server's state, usually nothing.
 
 Small. Lets a user who runs their own SSH tunnel point the plugin at it.
 
-- Add `socketPath` to `~/.config/herdr-logi-actions/config.json`. Absent means
+- Add `socketPath` to `~/.config/herdr-logi-plugin/config.json`. Absent means
   the default local socket. `HERDR_SOCKET_PATH` remains a development
   override.
 - `src/herdr.ts` currently fixes `SOCKET_PATH` at module load. Resolve it per

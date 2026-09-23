@@ -14,7 +14,7 @@ test('action names, groups and descriptions', () => {
   const space = new SpaceAction(3);
   assert.equal(space.name, 'herdr_space_3');
   assert.equal(space.displayName, 'Space 3');
-  assert.equal(space.groupName, 'Herdr Spaces');
+  assert.equal(space.groupName, 'Spaces');
   const agent = new AgentAction(2);
   assert.equal(agent.name, 'herdr_agent_2');
   assert.match(agent.description, /2nd running/);

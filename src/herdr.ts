@@ -8,7 +8,7 @@ import { recency } from './recency.ts';
 
 export const SOCKET_PATH = process.env.HERDR_SOCKET_PATH ?? join(homedir(), '.config/herdr/herdr.sock');
 export const CONFIG_PATH =
-  process.env.HERDR_LOGI_CONFIG ?? join(homedir(), '.config/herdr-logi-actions/config.json');
+  process.env.HERDR_LOGI_CONFIG ?? join(homedir(), '.config/herdr-logi-plugin/config.json');
 
 // The herdr socket protocol this plugin was written and tested against (herdr 0.8.2).
 export const TESTED_PROTOCOL = 20;
@@ -70,6 +70,8 @@ export function request<T = unknown>(method: string, params: Record<string, unkn
   return new Promise((resolve, reject) => {
     const id = `logi_${++nextId}`;
     const socket = createConnection(SOCKET_PATH);
+    // Decode as a stream so a multi-byte character split across chunks survives.
+    socket.setEncoding('utf8');
     let buffer = '';
     let settled = false;
     const fail = (error: Error) => {
