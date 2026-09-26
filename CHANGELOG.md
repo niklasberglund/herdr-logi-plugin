@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-09-26
+
 ### Changed
 
 - Empty tiles show their slot name ("Agent 3", "Space 3", "Recent 3") and
@@ -36,6 +38,7 @@ All notable changes to this project are documented here. The format follows
 - `~/.config/herdr-logi-plugin/config.json` with `terminalApp` to override
   the detected terminal or disable the activation step.
 
-[Unreleased]: https://github.com/niklasberglund/herdr-logi-plugin/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/niklasberglund/herdr-logi-plugin/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/niklasberglund/herdr-logi-plugin/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/niklasberglund/herdr-logi-plugin/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/niklasberglund/herdr-logi-plugin/releases/tag/v0.1.0

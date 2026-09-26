@@ -1,6 +1,6 @@
 {
   "name": "herdr-logi-plugin",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "Logi Actions plugin: live status tiles and one-press focus for herdr workspaces and coding agents on the Logitech MX Keypad",
   "type": "module",
