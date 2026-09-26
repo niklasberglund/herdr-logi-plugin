@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Empty tiles show their slot name ("Agent 3", "Space 3", "Recent 3") and
+  tiles show "offline" while herdr is unreachable, instead of a blank label
+  that left the ring looking too high on the key.
+
 ## [0.1.1] - 2026-09-23
 
 ### Changed

@@ -36,6 +36,9 @@ export abstract class SlotAction extends CommandAction {
   groupName: string;
   status: TileStatus = 'none';
   label: string;
+  // Shown while nothing occupies the slot. Options+ reserves the label row
+  // either way, so a blank label leaves the ring looking too high on the key.
+  readonly placeholder: string;
 
   constructor(kind: string, slot: number, description: string, groupName: string) {
     super();
@@ -43,7 +46,8 @@ export abstract class SlotAction extends CommandAction {
     this.groupName = groupName;
     this.name = `herdr_${kind.toLowerCase()}_${slot}`;
     this.displayName = `${kind} ${slot}`;
-    this.label = '';
+    this.placeholder = `${kind} ${slot}`;
+    this.label = this.placeholder;
     this.description = description;
   }
 
@@ -66,7 +70,7 @@ export class SpaceAction extends SlotAction {
     const workspace = workspaces.get(this.slot);
     this.workspaceId = workspace?.workspace_id;
     this.status = workspace?.agent_status ?? 'none';
-    this.label = workspace?.label || '';
+    this.label = workspace?.label || this.placeholder;
   }
 
   onKeyDown() {
@@ -100,7 +104,7 @@ export class AgentAction extends SlotAction {
     const agent = agents[this.slot - 1];
     this.paneId = agent?.pane_id;
     this.status = agent?.agent_status ?? 'none';
-    this.label = agent?.terminal_title_stripped || '';
+    this.label = agent?.terminal_title_stripped || this.placeholder;
   }
 
   onKeyDown() {

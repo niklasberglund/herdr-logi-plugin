@@ -199,11 +199,19 @@ test('no snapshot shows every tile as offline', () => {
   const seen: string[] = [];
   const actions = fakeActions({ name: 'tile_e', status: 'working' }, { name: 'tile_f', status: 'idle' });
 
-  applySnapshot(actions, undefined, (_, name) => void seen.push(name));
+  applySnapshot(actions, undefined, (event, name) => void seen.push(`${event} ${name}`));
 
   assert.deepEqual(
-    actions.map((a) => a.status),
-    ['offline', 'offline'],
+    actions.map((a) => [a.status, a.label]),
+    [
+      ['offline', 'offline'],
+      ['offline', 'offline'],
+    ],
   );
-  assert.deepEqual(seen, ['tile_e', 'tile_f']);
+  assert.deepEqual(seen, [
+    'ActionImageChanged tile_e',
+    'ActionTextChanged tile_e',
+    'ActionImageChanged tile_f',
+    'ActionTextChanged tile_f',
+  ]);
 });

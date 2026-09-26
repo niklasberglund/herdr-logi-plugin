@@ -44,13 +44,20 @@ test('tiles follow the snapshot and clear on an empty one', () => {
   const recent1 = new RecentAgentAction(1);
   const agent3 = new AgentAction(3);
   for (const a of [space1, space2, agent1, recent1, agent3]) a.update(snapshot);
-  assert.deepEqual([space1.status, space1.label], ['none', '']);
+  assert.deepEqual([space1.status, space1.label], ['none', 'Space 1']);
   assert.deepEqual([space2.status, space2.label], ['blocked', 'api']);
   assert.deepEqual([agent1.status, agent1.label], ['working', 'Fix login']);
-  assert.deepEqual([recent1.status, recent1.label], ['blocked', '']);
-  assert.deepEqual([agent3.status, agent3.label], ['none', '']);
+  assert.deepEqual([recent1.status, recent1.label], ['blocked', 'Recent 1']);
+  assert.deepEqual([agent3.status, agent3.label], ['none', 'Agent 3']);
   for (const a of [space2, agent1, recent1]) a.update(EMPTY_SNAPSHOT);
-  assert.deepEqual([space2.status, agent1.status, recent1.status], ['none', 'none', 'none']);
+  assert.deepEqual(
+    [space2, agent1, recent1].map((a) => [a.status, a.label]),
+    [
+      ['none', 'Space 2'],
+      ['none', 'Agent 1'],
+      ['none', 'Recent 1'],
+    ],
+  );
 });
 
 test('a tile with nothing behind it ignores presses', () => {

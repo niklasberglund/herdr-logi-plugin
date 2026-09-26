@@ -135,7 +135,10 @@ export function applySnapshot(actions: SlotAction[], snapshot: Snapshot | undefi
     try {
       const { status, label } = action;
       action.update(snapshot ?? EMPTY_SNAPSHOT);
-      if (!snapshot) action.status = 'offline';
+      if (!snapshot) {
+        action.status = 'offline';
+        action.label = 'offline';
+      }
       if (status !== action.status) notify('ActionImageChanged', action.name);
       if (label !== action.label) notify('ActionTextChanged', action.name);
     } catch (error) {
@@ -157,6 +160,7 @@ export function applySnapshot(actions: SlotAction[], snapshot: Snapshot | undefi
 // so without it the keys would go stale as well as static.
 function startPolling(actions: SlotAction[], notify: Notify) {
   let online = true;
+  let first = true;
 
   async function poll() {
     let snapshot: Snapshot | undefined;
@@ -170,6 +174,16 @@ function startPolling(actions: SlotAction[], notify: Notify) {
     }
     try {
       applySnapshot(actions, snapshot, notify);
+      // The service keeps faces from an earlier run (or an earlier install) and
+      // only asks again when told, so a tile whose state matches its initial
+      // one would never be refreshed.
+      if (first) {
+        first = false;
+        for (const action of actions) {
+          notify('ActionImageChanged', action.name);
+          notify('ActionTextChanged', action.name);
+        }
+      }
     } finally {
       setTimeout(poll, POLL_MS);
     }

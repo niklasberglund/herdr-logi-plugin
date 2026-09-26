@@ -48,9 +48,9 @@ const DEMO_DECK = [
   { status: 'working', label: 'add-tests' },
   { status: 'idle', label: 'review-pr' },
   { status: 'unknown', label: 'bench' },
-  { status: 'none', label: '' },
-  { status: 'none', label: '' },
-  { status: 'none', label: '' },
+  { status: 'none', label: 'Space 7' },
+  { status: 'none', label: 'Space 8' },
+  { status: 'none', label: 'Space 9' },
 ];
 
 const STATES = [
