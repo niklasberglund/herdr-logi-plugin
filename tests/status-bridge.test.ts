@@ -109,6 +109,15 @@ test('a GetActionText request is answered with the action label', () => {
   assert.deepEqual(sent[0]?.data, { text: 'build' });
 });
 
+test('a Tabs button keeps the full workspace name', () => {
+  const { internals, sent, deliver } = fakeInternals();
+  hookMessages(internals, fakeActions({ name: 'herdr_new_1', label: '+ tab my-project' }));
+
+  deliver(request('GetActionText', 'herdr_new_1'));
+
+  assert.deepEqual(sent[0]?.data, { text: '+ tab my-project' });
+});
+
 test('messages this bridge does not answer are left to the SDK', () => {
   const { internals, sent, handled, deliver } = fakeInternals();
   hookMessages(internals, fakeActions({ name: 'tile_c' }));

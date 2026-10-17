@@ -1,5 +1,5 @@
 import { PluginSDK } from '@logitech/plugin-sdk';
-import { AgentAction, RecentAgentAction, SLOT_COUNT, SpaceAction } from './src/actions.ts';
+import { AgentAction, NewTabAction, RecentAgentAction, SLOT_COUNT, SpaceAction } from './src/actions.ts';
 import { installStatusBridge } from './src/status-bridge.ts';
 
 const pluginSDK = new PluginSDK();
@@ -9,6 +9,7 @@ const actions = [
   ...slots.map((n) => new SpaceAction(n)),
   ...slots.map((n) => new AgentAction(n)),
   ...slots.map((n) => new RecentAgentAction(n)),
+  ...slots.map((n) => new NewTabAction(n)),
 ];
 for (const action of actions) pluginSDK.registerAction(action);
 

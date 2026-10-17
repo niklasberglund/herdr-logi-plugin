@@ -103,7 +103,9 @@ export function hookMessages(internals: Internals, actions: SlotAction[]): Notif
       return;
     }
     if (action && msg.name === 'GetActionText') {
-      reply(msg.id, msg.name, { text: labelText(action.label) });
+      // Let the Tabs tile show the workspace name; the usual ten
+      // character limit would reduce it to "+ tab …" on most workspaces.
+      reply(msg.id, msg.name, { text: action.name.startsWith('herdr_new_') ? action.label : labelText(action.label) });
       return;
     }
     void fallback(data);

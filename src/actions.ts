@@ -1,9 +1,11 @@
 import { CommandAction } from '@logitech/plugin-sdk';
 import {
+  activateTerminal,
   focusPane,
   focusWorkspace,
   getSnapshot,
   nextPaneInFocusedWorkspace,
+  request,
   type Agent,
   type AgentStatus,
   type Snapshot,
@@ -129,5 +131,69 @@ export class RecentAgentAction extends AgentAction {
 
   update({ recent }: Snapshot) {
     this.apply(recent);
+  }
+}
+
+const NEW_TAB_TIMEOUT_MS = 10_000;
+
+/**
+ * Creates a shell tab in the workspace whose number matches the slot (1–9).
+ * Keep the action IDs so existing keypad assignments continue to work.
+ */
+export class NewTabAction extends SlotAction {
+  constructor(slot: number) {
+    super(
+      'New',
+      slot,
+      `Create a new shell tab in herdr workspace ${slot}`,
+      'Tabs',
+    );
+    this.displayName = `New tab space ${slot}`;
+    this.label = `+ tab Space ${slot}`;
+  }
+
+  /** Green outline when the workspace exists, dotted when absent. */
+  update({ workspaces }: Snapshot): void {
+    const workspace = workspaces.get(this.slot);
+    this.status = workspace ? 'idle' : 'none';
+    this.label = `+ tab ${workspace?.label || `Space ${this.slot}`}`;
+  }
+
+  onKeyDown(): Promise<void> | void {
+    const slot = this.slot;
+    return enqueue(() => this.#run(slot));
+  }
+
+  async #run(targetSpace: number): Promise<void> {
+    try {
+      await activateTerminal();
+    } catch (err) {
+      console.warn(`NewTabAction: terminal activation failed (continuing): ${(err as Error).message}`);
+    }
+
+    let snapshot: Snapshot;
+    try {
+      snapshot = await getSnapshot();
+    } catch (err) {
+      console.error(`NewTabAction: session.snapshot failed: ${(err as Error).message}`);
+      return;
+    }
+
+    const workspace = snapshot.workspaces.get(targetSpace);
+    if (!workspace) {
+      console.error(`NewTabAction: no workspace with number ${targetSpace}`);
+      return;
+    }
+
+    try {
+      // Omitting label lets herdr assign its sequential numeric tab label.
+      await request(
+        'tab.create',
+        { workspace_id: workspace.workspace_id, focus: true },
+        NEW_TAB_TIMEOUT_MS,
+      );
+    } catch (err) {
+      console.error(`NewTabAction: tab.create failed: ${(err as Error).message}`);
+    }
   }
 }

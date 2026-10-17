@@ -37,7 +37,7 @@ MX Keypad ─────────── Logi Plugin Service ──WebSocket�
                                                             │ every second:
                                                             │   session.snapshot
                                                             │ on press:
-                                                            │   workspace.focus / pane.focus
+                                                            │   workspace.focus / pane.focus / tab.create
                                                             ▼
                                                     ~/.config/herdr/herdr.sock
 ```
@@ -50,7 +50,8 @@ MX Keypad ─────────── Logi Plugin Service ──WebSocket�
   [docs/dynamic-tile-images.md](docs/dynamic-tile-images.md).
 - Presses are queued so rapid taps see the focus state left by the previous
   one. A Space key press fetches a fresh snapshot to decide between focusing
-  the workspace and cycling its panes.
+  the workspace and cycling its panes. A Tabs key press creates a numbered
+  shell tab in its workspace without starting an agent.
 - Recent Agent order changes only when an agent's status changes, never on
   focus, so keys do not reorder under the press that focused them. Agents
   already running when the plugin starts keep their workspace order.
@@ -62,8 +63,8 @@ MX Keypad ─────────── Logi Plugin Service ──WebSocket�
 ## Layout
 
 ```
-index.ts                 registers the 27 actions and connects to the Plugin Service
-src/actions.ts           Space, Agent and Recent Agent actions and the press queue
+index.ts                 registers the 36 actions and connects to the Plugin Service
+src/actions.ts           Space, Agent, Recent Agent and Tabs actions and the press queue
 src/herdr.ts             herdr socket client, snapshot shaping, terminal activation
 src/recency.ts           most-recently-active ordering for the Recent Agent keys
 src/status-bridge.ts     answers GetActionImage/GetActionText and pushes change events
@@ -77,13 +78,16 @@ docs/                    how live key faces work from a Node plugin, README imag
 
 ## README images
 
-`npm run deck` draws the README pictures with the plugin's own ring renderer,
-so they cannot drift from the key faces the device gets. The faces go behind
+`npm run deck` draws the demo keypad and tile-state pictures with the plugin's
+own ring renderer, so they cannot drift from the key faces the device gets. The
+faces go behind
 `assets/keypad-frame.png`, whose key windows are transparent; the windows are
 found in its alpha channel, so replacing the frame moves the faces with it.
 `npm run deck -- --live` draws the herdr session running right now instead of
 the demo one. It needs an SVG rasteriser (`brew install librsvg`) and writes
 the SVG instead of the PNG if none is installed.
+`docs/images/tabs-keypad.png` is a separate screenshot of the Tabs actions on
+the device.
 
 ## Releases
 

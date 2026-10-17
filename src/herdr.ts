@@ -66,7 +66,8 @@ type RawSnapshot = {
 let nextId = 0;
 
 // One request per connection: herdr answers with a single JSON line.
-export function request<T = unknown>(method: string, params: Record<string, unknown> = {}): Promise<T> {
+// Pass an explicit timeoutMs to override the module-level REQUEST_TIMEOUT_MS default.
+export function request<T = unknown>(method: string, params: Record<string, unknown> = {}, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
   return new Promise((resolve, reject) => {
     const id = `logi_${++nextId}`;
     const socket = createConnection(SOCKET_PATH);
@@ -81,7 +82,7 @@ export function request<T = unknown>(method: string, params: Record<string, unkn
       }
       socket.destroy();
     };
-    socket.setTimeout(REQUEST_TIMEOUT_MS, () => fail(new Error(`herdr ${method}: timed out`)));
+    socket.setTimeout(timeoutMs, () => fail(new Error(`herdr ${method}: timed out`)));
     socket.on('connect', () => socket.write(JSON.stringify({ id, method, params }) + '\n'));
     socket.on('data', (chunk) => {
       buffer += chunk;
@@ -235,7 +236,7 @@ export async function detectTerminalBundle(): Promise<string | undefined> {
   return bundle;
 }
 
-async function activateTerminal() {
+export async function activateTerminal() {
   const { terminalApp } = loadConfig();
   if (terminalApp === '') return;
   const target = terminalApp ?? (await detectTerminalBundle());

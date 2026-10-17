@@ -31,6 +31,15 @@ the MX Keypad. Press a key to jump to one.
 | Spaces (1–9) | The workspace with that number and its combined agent status | Focuses the workspace. Press again to cycle its panes. |
 | Agents (1–9) | The Nth running agent, in workspace order | Focuses the agent's pane. |
 | Recent Agents (1–9) | Agents ordered by most recent status change | Focuses the agent's pane. |
+| Tabs (1–9) | `+ tab` and the workspace name | Creates and focuses an automatically numbered tab with a shell in that workspace. No agent starts automatically. |
+
+Assign **Tabs → New tab space N** to a key for each workspace you use. A green
+ring means that workspace exists; a dotted ring means its slot is empty. Press
+a green key to open the next numbered tab with a shell. Start any CLI you want
+from that shell.
+
+<img src="docs/images/tabs-keypad.png" width="420"
+ alt="MX Keypad with four available Tabs keys and one dotted key for an empty workspace slot">
 
 <img src="docs/images/tile-states.png" width="600"
  alt="The seven tile states, left to right: blocked, working, done, idle,

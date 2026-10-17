@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Tabs actions create automatically numbered shell tabs in the chosen workspace,
+  without starting an AI agent.
+
 ## [0.1.2] - 2026-09-26
 
 ### Changed
