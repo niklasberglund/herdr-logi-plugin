@@ -1,11 +1,17 @@
 import type { PluginSDK } from '@logitech/plugin-sdk';
 import { EMPTY_SNAPSHOT, getSnapshot, type Snapshot } from './herdr.ts';
-import { circlePng, type CircleStyle, type Rgb } from './png.ts';
+import { circlePng, facePng, type CircleStyle, type Rgb } from './png.ts';
+import { projectColor } from './project-color.ts';
 import type { SlotAction, TileStatus } from './actions.ts';
 
 const POLL_MS = 1000;
 export const IMAGE_SIZE = 80;
 const MAX_LABEL_CHARS = 10;
+
+// The project name is drawn in the image's band; the service text carries only
+// the session line (or '+ tab' on New-tab keys). Candidate maximum, to be
+// confirmed on device.
+export const SESSION_TEXT_MAX_CHARS = 12;
 
 const STYLE: Record<TileStatus, { rgb: Rgb; style: CircleStyle }> = {
   blocked: { rgb: [230, 40, 40], style: 'filled' },
@@ -42,14 +48,47 @@ export function imageFor(status: TileStatus): string {
   return cached;
 }
 
+const FACE_CACHE_MAX = 256;
+const faceCache = new Map<string, string>();
+
+/** Base64 key face (tab, project band and state ring) for a slot action. */
+export function faceFor(action: SlotAction): string {
+  const key = action.faceKey;
+  let cached = faceCache.get(key);
+  if (!cached) {
+    const { tab, tabNumber, project, session } = action.face;
+    const ring = styleFor(action.status);
+    const band = projectColor(project);
+    cached = facePng(
+      tab === undefined ? { project, session, ring, band } : { tab, tabNumber, project, session, ring, band },
+    ).toString('base64');
+    // Bounded so rapidly changing titles cannot grow memory without limit.
+    if (faceCache.size >= FACE_CACHE_MAX) faceCache.clear();
+    faceCache.set(key, cached);
+  }
+  return cached;
+}
+
 // The Plugin Service falls back to the action's display name when the text is
 // empty or whitespace, so an unused slot answers with a zero-width space.
 const BLANK = '​';
 
-export function labelText(text: string): string {
+export function labelText(text: string, maxChars = MAX_LABEL_CHARS): string {
   if (!text) return BLANK;
   const chars = Array.from(text);
-  return chars.length > MAX_LABEL_CHARS ? chars.slice(0, MAX_LABEL_CHARS - 1).join('') + '…' : text;
+  return chars.length > maxChars ? chars.slice(0, maxChars - 1).join('') + '…' : text;
+}
+
+// Control characters (including CR/LF) become spaces so a title cannot add lines.
+function cleanLine(text: string): string {
+  // eslint-disable-next-line no-control-regex
+  return text.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, ' ').trim();
+}
+
+/** Service text for a key face: the session line only (the project is in the image band). */
+export function serviceText(face: { project: string; session: string }): string {
+  const session = cleanLine(face.session);
+  return session ? labelText(session, SESSION_TEXT_MAX_CHARS) : BLANK;
 }
 
 type Client = { onMessage(handler: (data: Buffer) => void): void; sendMessage(message: unknown): void };
@@ -99,11 +138,12 @@ export function hookMessages(internals: Internals, actions: SlotAction[]): Notif
     }
     const action = msg.messageType === 'Request' ? byName.get(msg.parameters?.actionName ?? '') : undefined;
     if (action && msg.name === 'GetActionImage') {
-      reply(msg.id, msg.name, { image: imageFor(action.status) });
+      reply(msg.id, msg.name, { image: faceFor(action) });
       return;
     }
     if (action && msg.name === 'GetActionText') {
-      reply(msg.id, msg.name, { text: labelText(action.label) });
+      // The image holds tab, ring and the project band; the session goes here.
+      reply(msg.id, msg.name, { text: serviceText(action.face) });
       return;
     }
     void fallback(data);
@@ -133,14 +173,16 @@ const warnedActions = new Set<string>();
 export function applySnapshot(actions: SlotAction[], snapshot: Snapshot | undefined, notify: Notify) {
   for (const action of actions) {
     try {
-      const { status, label } = action;
+      const { label, faceKey } = action;
+      const text = serviceText(action.face);
       action.update(snapshot ?? EMPTY_SNAPSHOT);
       if (!snapshot) {
         action.status = 'offline';
         action.label = 'offline';
+        action.face = { tab: undefined, project: '', session: '' };
       }
-      if (status !== action.status) notify('ActionImageChanged', action.name);
-      if (label !== action.label) notify('ActionTextChanged', action.name);
+      if (faceKey !== action.faceKey) notify('ActionImageChanged', action.name);
+      if (label !== action.label || text !== serviceText(action.face)) notify('ActionTextChanged', action.name);
     } catch (error) {
       if (!warnedActions.has(action.name)) {
         warnedActions.add(action.name);

@@ -6,6 +6,18 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Tabs actions create automatically numbered shell tabs in the chosen workspace,
+  without starting an AI agent.
+
+### Changed
+
+- Space, Agent and Recent keys draw their whole face as one image: the state
+  ring with the space number and the tab position as a superscript, and the
+  project name in a vector-font band at the bottom whose color is derived from
+  the project name. The service text carries the session name.
+
 ## [0.1.2] - 2026-09-26
 
 ### Changed

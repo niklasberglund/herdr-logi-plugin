@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { AgentAction, ordinal, RecentAgentAction, SpaceAction } from '../src/actions.ts';
+import { AgentAction, NewTabAction, ordinal, RecentAgentAction, sessionAgentFor, SpaceAction } from '../src/actions.ts';
 import { EMPTY_SNAPSHOT, type Agent, type Snapshot } from '../src/herdr.ts';
 import { labelText } from '../src/status-bridge.ts';
 
@@ -35,6 +35,7 @@ const snapshot: Snapshot = {
   agents,
   recent: [agents[1], agents[0]],
   layouts: new Map(),
+  tabs: new Map(),
 };
 
 test('tiles follow the snapshot and clear on an empty one', () => {
@@ -75,4 +76,54 @@ test('labels are blanked, kept or truncated by character', () => {
   assert.equal(labelText('exactly 10'), 'exactly 10');
   assert.equal(labelText('a longer title'), 'a longer …');
   assert.equal(labelText('🐑🐑🐑🐑🐑🐑🐑🐑🐑🐑🐑'), '🐑🐑🐑🐑🐑🐑🐑🐑🐑…');
+});
+
+test('sessionAgentFor prefers the most recent agent of the workspace', () => {
+  const a: Agent = { pane_id: 'w1:p1', workspace_id: 'w1', agent: 'x', agent_status: 'idle', terminal_title_stripped: 'a' };
+  const b: Agent = { pane_id: 'w1:p2', workspace_id: 'w1', agent: 'x', agent_status: 'idle', terminal_title_stripped: 'b' };
+  const c: Agent = { pane_id: 'w2:p1', workspace_id: 'w2', agent: 'x', agent_status: 'idle', terminal_title_stripped: 'c' };
+  assert.equal(sessionAgentFor('w1', { agents: [a, b], recent: [b, a] })?.pane_id, 'w1:p2');
+  assert.equal(sessionAgentFor('w1', { agents: [a, b], recent: [] })?.pane_id, 'w1:p1');
+  assert.equal(sessionAgentFor('w1', { agents: [a, b, c], recent: [c, b] })?.pane_id, 'w1:p2');
+  assert.equal(sessionAgentFor('w3', { agents: [a, b, c], recent: [c] }), undefined);
+});
+
+test('Space, Agent and Recent keys carry the tab position; New-tab keys and unknown tabs carry none', () => {
+  const tabAgents: Agent[] = [
+    { pane_id: 'w2:p1', workspace_id: 'w2', tab_id: 'w2:t5', agent: 'x', agent_status: 'idle', terminal_title_stripped: 'a' },
+    { pane_id: 'w2:p2', workspace_id: 'w2', agent: 'x', agent_status: 'idle', terminal_title_stripped: 'b' },
+  ];
+  const snap: Snapshot = {
+    ...snapshot,
+    workspaces: new Map([[2, { workspace_id: 'w2', active_tab_id: 'w2:t3', number: 2, label: 'api', agent_status: 'idle' }]]),
+    agents: tabAgents,
+    recent: [tabAgents[1], tabAgents[0]],
+    tabs: new Map([['w2:t3', 1], ['w2:t5', 2]]),
+  };
+  const space = new SpaceAction(2);
+  const agent = new AgentAction(1);
+  const agentNoTab = new AgentAction(2);
+  const recent = new RecentAgentAction(2);
+  const newTab = new NewTabAction(2);
+  for (const a of [space, agent, agentNoTab, recent, newTab]) a.update(snap);
+  assert.equal(space.face.tabNumber, 1, 'active tab of the workspace');
+  assert.equal(agent.face.tabNumber, 2, 'agent in a non-first tab');
+  assert.equal(recent.face.tabNumber, 2);
+  assert.equal(agentNoTab.face.tabNumber, undefined, 'agent without tab_id');
+  assert.equal(newTab.face.tabNumber, undefined, 'New-tab key keeps the plain face');
+});
+
+test('the face key changes when the active tab changes', () => {
+  const space = new SpaceAction(2);
+  const withTab = (n: number): Snapshot => ({
+    ...snapshot,
+    workspaces: new Map([[2, { workspace_id: 'w2', active_tab_id: 'w2:t3', number: 2, label: 'api', agent_status: 'idle' }]]),
+    tabs: new Map([['w2:t3', n]]),
+  });
+  space.update(withTab(1));
+  const first = space.faceKey;
+  space.update(withTab(2));
+  assert.notEqual(space.faceKey, first);
+  space.update({ ...withTab(1), tabs: new Map() });
+  assert.notEqual(space.faceKey, first, 'unknown tab differs from tab 1');
 });

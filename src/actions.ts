@@ -1,18 +1,52 @@
 import { CommandAction } from '@logitech/plugin-sdk';
 import {
+  activateTerminal,
   focusPane,
   focusWorkspace,
   getSnapshot,
   nextPaneInFocusedWorkspace,
+  request,
   type Agent,
   type AgentStatus,
   type Snapshot,
+  type Workspace,
 } from './herdr.ts';
 
 export const SLOT_COUNT = 9;
 
 // `none`: nothing occupies the slot. `offline`: herdr cannot be reached.
 export type TileStatus = AgentStatus | 'none' | 'offline';
+
+export type Face = { tab?: number | undefined; tabNumber?: number | undefined; project: string; session: string };
+
+/** `{ tabNumber }` when the tab's position is known, else nothing (the key is omitted). */
+const tabNumberOf = (tabs: Map<string, number>, tabId: string | undefined): { tabNumber?: number } => {
+  const tabNumber = tabId === undefined ? undefined : tabs.get(tabId);
+  return tabNumber === undefined ? {} : { tabNumber };
+};
+
+const emptyFace = (tab?: number): Face => ({ tab, project: '', session: '' });
+
+/**
+ * The agent a Space key shows as its session: the workspace's agent that is
+ * most recent in `recent` (matched by pane id), else the first in `agents`.
+ */
+export function sessionAgentFor(
+  workspaceId: string,
+  { agents, recent }: Pick<Snapshot, 'agents' | 'recent'>,
+): Agent | undefined {
+  const candidates = agents.filter((a) => a.workspace_id === workspaceId);
+  let best: Agent | undefined;
+  let bestRank = Infinity;
+  for (const candidate of candidates) {
+    const rank = recent.findIndex((r) => r.pane_id === candidate.pane_id);
+    if (rank !== -1 && rank < bestRank) {
+      best = candidate;
+      bestRank = rank;
+    }
+  }
+  return best ?? candidates[0];
+}
 
 export function ordinal(n: number): string {
   const suffixes = ['th', 'st', 'nd', 'rd'];
@@ -36,6 +70,7 @@ export abstract class SlotAction extends CommandAction {
   groupName: string;
   status: TileStatus = 'none';
   label: string;
+  face: Face = emptyFace();
   // Shown while nothing occupies the slot. Options+ reserves the label row
   // either way, so a blank label leaves the ring looking too high on the key.
   readonly placeholder: string;
@@ -49,6 +84,11 @@ export abstract class SlotAction extends CommandAction {
     this.placeholder = `${kind} ${slot}`;
     this.label = this.placeholder;
     this.description = description;
+  }
+
+  /** Changes whenever the drawn key face (ring or text) would change. */
+  get faceKey(): string {
+    return JSON.stringify([this.status, this.face.tab ?? null, this.face.tabNumber ?? null, this.face.project, this.face.session]);
   }
 
   abstract update(snapshot: Snapshot): void;
@@ -66,11 +106,19 @@ export class SpaceAction extends SlotAction {
     );
   }
 
-  update({ workspaces }: Snapshot) {
+  update({ workspaces, agents, recent, tabs }: Snapshot) {
     const workspace = workspaces.get(this.slot);
     this.workspaceId = workspace?.workspace_id;
     this.status = workspace?.agent_status ?? 'none';
     this.label = workspace?.label || this.placeholder;
+    this.face = workspace
+      ? {
+          tab: workspace.number,
+          ...tabNumberOf(tabs, workspace.active_tab_id),
+          project: workspace.label,
+          session: sessionAgentFor(workspace.workspace_id, { agents, recent })?.terminal_title_stripped ?? '',
+        }
+      : emptyFace(this.slot);
   }
 
   onKeyDown() {
@@ -96,15 +144,26 @@ export class AgentAction extends SlotAction {
     super(kind, slot, description, groupName);
   }
 
-  update({ agents }: Snapshot) {
-    this.apply(agents);
+  update({ agents, workspaces, tabs }: Snapshot) {
+    this.apply(agents, workspaces, tabs);
   }
 
-  protected apply(agents: Agent[]) {
+  protected apply(agents: Agent[], workspaces: Map<number, Workspace>, tabs: Map<string, number>) {
     const agent = agents[this.slot - 1];
     this.paneId = agent?.pane_id;
     this.status = agent?.agent_status ?? 'none';
     this.label = agent?.terminal_title_stripped || this.placeholder;
+    if (!agent) {
+      this.face = emptyFace(this.slot);
+      return;
+    }
+    const workspace = [...workspaces.values()].find((w) => w.workspace_id === agent.workspace_id);
+    this.face = {
+      tab: workspace?.number,
+      ...tabNumberOf(tabs, agent.tab_id),
+      project: workspace?.label ?? '',
+      session: agent.terminal_title_stripped,
+    };
   }
 
   onKeyDown() {
@@ -127,7 +186,74 @@ export class RecentAgentAction extends AgentAction {
     this.displayName = `Recent Agent ${slot}`;
   }
 
-  update({ recent }: Snapshot) {
-    this.apply(recent);
+  update({ recent, workspaces, tabs }: Snapshot) {
+    this.apply(recent, workspaces, tabs);
+  }
+}
+
+const NEW_TAB_TIMEOUT_MS = 10_000;
+
+/**
+ * Creates a shell tab in the workspace whose number matches the slot (1–9).
+ * Keep the action IDs so existing keypad assignments continue to work.
+ */
+export class NewTabAction extends SlotAction {
+  constructor(slot: number) {
+    super(
+      'New',
+      slot,
+      `Create a new shell tab in herdr workspace ${slot}`,
+      'Tabs',
+    );
+    this.displayName = `New tab space ${slot}`;
+    this.label = `+ tab Space ${slot}`;
+  }
+
+  /** Green outline when the workspace exists, dotted when absent. */
+  update({ workspaces }: Snapshot): void {
+    const workspace = workspaces.get(this.slot);
+    this.status = workspace ? 'idle' : 'none';
+    this.label = `+ tab ${workspace?.label || `Space ${this.slot}`}`;
+    this.face = workspace
+      ? { tab: workspace.number, project: workspace.label, session: '+ tab' }
+      : emptyFace(this.slot);
+  }
+
+  onKeyDown(): Promise<void> | void {
+    const slot = this.slot;
+    return enqueue(() => this.#run(slot));
+  }
+
+  async #run(targetSpace: number): Promise<void> {
+    try {
+      await activateTerminal();
+    } catch (err) {
+      console.warn(`NewTabAction: terminal activation failed (continuing): ${(err as Error).message}`);
+    }
+
+    let snapshot: Snapshot;
+    try {
+      snapshot = await getSnapshot();
+    } catch (err) {
+      console.error(`NewTabAction: session.snapshot failed: ${(err as Error).message}`);
+      return;
+    }
+
+    const workspace = snapshot.workspaces.get(targetSpace);
+    if (!workspace) {
+      console.error(`NewTabAction: no workspace with number ${targetSpace}`);
+      return;
+    }
+
+    try {
+      // Omitting label lets herdr assign its sequential numeric tab label.
+      await request(
+        'tab.create',
+        { workspace_id: workspace.workspace_id, focus: true },
+        NEW_TAB_TIMEOUT_MS,
+      );
+    } catch (err) {
+      console.error(`NewTabAction: tab.create failed: ${(err as Error).message}`);
+    }
   }
 }

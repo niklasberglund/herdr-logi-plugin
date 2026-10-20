@@ -12,6 +12,7 @@ const socketPath = join(dir, 'h.sock');
 process.env.HERDR_SOCKET_PATH = socketPath;
 const {
   comparePaneIds,
+  getSnapshot,
   installedTerminalBundle,
   loadConfig,
   nextPaneInFocusedWorkspace,
@@ -37,6 +38,7 @@ function snapshot(focusedWorkspaceId: string | undefined, focusedPane: string, p
     layouts: new Map([
       ['w1:t1', { tab_id: 'w1:t1', focused_pane_id: focusedPane, panes: panes.map((pane_id) => ({ pane_id })) }],
     ]),
+    tabs: new Map(),
   };
 }
 
@@ -194,4 +196,34 @@ test('a malformed reply rejects instead of crashing', async () => {
 test('a missing socket rejects', async () => {
   process.env.HERDR_SOCKET_PATH = join(dir, 'nope.sock');
   await assert.rejects(request('session.snapshot'));
+});
+
+test('tab position is the 1-based index among the workspace tabs, in snapshot order', async () => {
+  behaviour = (socket, line) => {
+    const { id } = JSON.parse(line);
+    const snapshot = {
+      version: 'x',
+      protocol: 20,
+      workspaces: [],
+      agents: [],
+      layouts: [],
+      tabs: [
+        { tab_id: 'w1:t1', workspace_id: 'w1', number: 1 },
+        { tab_id: 'w2:t9', workspace_id: 'w2', number: 5 },
+        { tab_id: 'w1:t4', workspace_id: 'w1', number: 7 },
+        { tab_id: 'w1:t6', workspace_id: 'w1', number: 8 },
+      ],
+    };
+    socket.end(JSON.stringify({ id, result: { snapshot } }) + '\n');
+  };
+  const { tabs } = await getSnapshot();
+  assert.deepEqual([...tabs], [['w1:t1', 1], ['w2:t9', 1], ['w1:t4', 2], ['w1:t6', 3]]);
+});
+
+test('a snapshot without tabs yields an empty tab map', async () => {
+  behaviour = (socket, line) => {
+    const { id } = JSON.parse(line);
+    socket.end(JSON.stringify({ id, result: { snapshot: { version: 'x', protocol: 20, workspaces: [], agents: [], layouts: [] } } }) + '\n');
+  };
+  assert.equal((await getSnapshot()).tabs.size, 0);
 });

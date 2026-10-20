@@ -20,7 +20,8 @@ import { inflateSync } from 'node:zlib';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { circlePng } from '../src/png.ts';
+import { circlePng, facePng } from '../src/png.ts';
+import { projectColor } from '../src/project-color.ts';
 import { IMAGE_SIZE, labelText, styleFor } from '../src/status-bridge.ts';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -42,15 +43,15 @@ const FONT = "'SF Pro Text','Helvetica Neue',Helvetica,Arial,sans-serif";
 // A plausible herdr session: six workspaces open, one waiting on you, two
 // agents at work, one turn just finished, and three slots still empty.
 const DEMO_DECK = [
-  { status: 'blocked', label: 'fix-login' },
-  { status: 'working', label: 'refactor-auth' },
-  { status: 'done', label: 'migrate-db' },
-  { status: 'working', label: 'add-tests' },
-  { status: 'idle', label: 'review-pr' },
-  { status: 'unknown', label: 'bench' },
-  { status: 'none', label: 'Space 7' },
-  { status: 'none', label: 'Space 8' },
-  { status: 'none', label: 'Space 9' },
+  { status: 'blocked', tab: 1, project: 'fix-login' },
+  { status: 'working', tab: 2, project: 'refactor-auth' },
+  { status: 'done', tab: 3, project: 'migrate-db' },
+  { status: 'working', tab: 4, project: 'add-tests' },
+  { status: 'idle', tab: 5, project: 'review-pr' },
+  { status: 'unknown', tab: 6, project: 'bench' },
+  { status: 'none', tab: 7, project: '' },
+  { status: 'none', tab: 8, project: '' },
+  { status: 'none', tab: 9, project: '' },
 ];
 
 const STATES = [
@@ -197,8 +198,21 @@ const dataUri = (base64) => `data:image/png;base64,${base64}`;
 // One key face, `scale` pixels per design unit, with its top-left corner at
 // (x, y). An empty slot keeps the space its label would occupy so the rows
 // stay aligned, which is what the device does too.
-function face({ status, label }, x, y, scale, { rounded = false } = {}) {
+function face(tile, x, y, scale, { rounded = false } = {}) {
+  const { status, label } = tile;
   const size = TILE * scale;
+  if (tile.project !== undefined) {
+    // A full 80x80 key face, drawn by the same facePng() the device uses
+    // (tab, state ring and the project's own band colour), not approximated.
+    const px = Math.round(size);
+    const spec = { ring: styleFor(status), band: projectColor(tile.project) };
+    if (tile.tab !== undefined) spec.tab = tile.tab;
+    if (tile.project) spec.project = tile.project;
+    return `
+  <g transform="translate(${x},${y})">
+    <image x="0" y="0" width="${px}" height="${px}" href="${dataUri(facePng(spec).toString('base64'))}"/>
+  </g>`;
+  }
   const ringPixels = Math.round(IMAGE_SIZE * scale);
   const text = labelText(label).trim();
   const plate = rounded
@@ -293,7 +307,7 @@ async function liveDeck() {
   return Array.from({ length: SLOT_COUNT }, (_, i) => {
     const action = new SpaceAction(i + 1);
     action.update(snapshot);
-    return { status: action.status, label: action.label };
+    return { status: action.status, label: action.label, tab: action.face.tab, project: action.face.project };
   });
 }
 

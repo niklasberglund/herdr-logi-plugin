@@ -30,6 +30,7 @@ export type Agent = {
   agent: string;
   agent_status: AgentStatus;
   terminal_title_stripped: string;
+  tab_id?: string;
 };
 
 export type Layout = {
@@ -44,6 +45,8 @@ export type Snapshot = {
   agents: Agent[];
   recent: Agent[];
   layouts: Map<string, Layout>;
+  /** tab_id -> 1-based position of the tab among its workspace's tabs (snapshot order). */
+  tabs: Map<string, number>;
 };
 
 export const EMPTY_SNAPSHOT: Snapshot = {
@@ -52,6 +55,7 @@ export const EMPTY_SNAPSHOT: Snapshot = {
   agents: [],
   recent: [],
   layouts: new Map(),
+  tabs: new Map(),
 };
 
 type RawSnapshot = {
@@ -61,12 +65,14 @@ type RawSnapshot = {
   workspaces: Workspace[];
   agents: Agent[];
   layouts: Layout[];
+  tabs?: { tab_id: string; workspace_id: string }[];
 };
 
 let nextId = 0;
 
 // One request per connection: herdr answers with a single JSON line.
-export function request<T = unknown>(method: string, params: Record<string, unknown> = {}): Promise<T> {
+// Pass an explicit timeoutMs to override the module-level REQUEST_TIMEOUT_MS default.
+export function request<T = unknown>(method: string, params: Record<string, unknown> = {}, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
   return new Promise((resolve, reject) => {
     const id = `logi_${++nextId}`;
     const socket = createConnection(SOCKET_PATH);
@@ -81,7 +87,7 @@ export function request<T = unknown>(method: string, params: Record<string, unkn
       }
       socket.destroy();
     };
-    socket.setTimeout(REQUEST_TIMEOUT_MS, () => fail(new Error(`herdr ${method}: timed out`)));
+    socket.setTimeout(timeoutMs, () => fail(new Error(`herdr ${method}: timed out`)));
     socket.on('connect', () => socket.write(JSON.stringify({ id, method, params }) + '\n'));
     socket.on('data', (chunk) => {
       buffer += chunk;
@@ -125,7 +131,14 @@ export async function getSnapshot(): Promise<Snapshot> {
       (numberOf.get(a.workspace_id) ?? 0) - (numberOf.get(b.workspace_id) ?? 0) || comparePaneIds(a.pane_id, b.pane_id),
   );
   const layouts = new Map(snapshot.layouts.map((l) => [l.tab_id, l]));
-  return { focusedWorkspaceId: snapshot.focused_workspace_id, workspaces, agents, recent: recency.rank(agents), layouts };
+  const tabs = new Map<string, number>();
+  const perWorkspace = new Map<string, number>();
+  for (const t of snapshot.tabs ?? []) {
+    const position = (perWorkspace.get(t.workspace_id) ?? 0) + 1;
+    perWorkspace.set(t.workspace_id, position);
+    tabs.set(t.tab_id, position);
+  }
+  return { focusedWorkspaceId: snapshot.focused_workspace_id, workspaces, agents, recent: recency.rank(agents), layouts, tabs };
 }
 
 export type Config = {
@@ -235,7 +248,7 @@ export async function detectTerminalBundle(): Promise<string | undefined> {
   return bundle;
 }
 
-async function activateTerminal() {
+export async function activateTerminal() {
   const { terminalApp } = loadConfig();
   if (terminalApp === '') return;
   const target = terminalApp ?? (await detectTerminalBundle());
