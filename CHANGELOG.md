@@ -13,6 +13,14 @@ All notable changes to this project are documented here. The format follows
   icon (not a status ring, so it can't be mistaken for an agent indicator)
   and labelled with the workspace name alone.
 
+### Changed
+
+- Space, Agent and Recent keys draw their whole face as one image: the state
+  ring with the space number and the tab position as a superscript, and the
+  project name in a vector-font band at the bottom whose colour is derived
+  from the project name. The service text under the key carries the session
+  name only.
+
 ## [0.2.0] - 2026-10-22
 
 ### Added

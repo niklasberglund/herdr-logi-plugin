@@ -35,7 +35,10 @@ static class Deck
     private const string LabelColour = "#e7e7e9";
     private const string Font = "'SF Pro Text','Helvetica Neue',Helvetica,Arial,sans-serif";
 
-    private sealed record Key(string Status, string Label);
+    // `Project` is null for the old-style ring-plus-label approximation (used
+    // by the state legend strip) and non-null (possibly empty) for the new
+    // composite key face, drawn by the same FacePng.Draw() the device uses.
+    private sealed record Key(string Status, string Label, int? Tab = null, string? Project = null);
 
     private sealed record Window(int X, int Y, int Width, int Height);
 
@@ -43,15 +46,15 @@ static class Deck
     // agents at work, one turn just finished, and three slots still empty.
     private static readonly Key[] DemoDeck =
     [
-        new("blocked", "fix-login"),
-        new("working", "refactor-auth"),
-        new("done", "migrate-db"),
-        new("working", "add-tests"),
-        new("idle", "review-pr"),
-        new("unknown", "bench"),
-        new("none", "Space 7"),
-        new("none", "Space 8"),
-        new("none", "Space 9"),
+        new("blocked", "fix-login", Tab: 1, Project: "fix-login"),
+        new("working", "refactor-auth", Tab: 2, Project: "refactor-auth"),
+        new("done", "migrate-db", Tab: 3, Project: "migrate-db"),
+        new("working", "add-tests", Tab: 4, Project: "add-tests"),
+        new("idle", "review-pr", Tab: 5, Project: "review-pr"),
+        new("unknown", "bench", Tab: 6, Project: "bench"),
+        new("none", "Space 7", Tab: 7, Project: ""),
+        new("none", "Space 8", Tab: 8, Project: ""),
+        new("none", "Space 9", Tab: 9, Project: ""),
     ];
 
     private static readonly Key[] States =
@@ -80,6 +83,31 @@ static class Deck
             var (rgb, style) = TileFaces.StyleFor(status);
             cached = Convert.ToBase64String(RingPng.Circle(pixels, rgb, style));
             Rings[key] = cached;
+        }
+        return cached;
+    }
+
+    // The new composite key face (ring, tab number/superscript and project
+    // band), drawn by FacePng.Draw() — the same code the device uses — and
+    // cached per distinct (status, tab, project) combination.
+    private static readonly Dictionary<string, string> Faces = [];
+
+    private static string FaceImage(Key key)
+    {
+        var cacheKey = $"{key.Status}|{key.Tab}|{key.Project}";
+        if (!Faces.TryGetValue(cacheKey, out var cached))
+        {
+            var (rgb, style) = TileFaces.StyleFor(key.Status);
+            var spec = new FaceSpec
+            {
+                Tab = key.Tab,
+                Project = key.Project ?? "",
+                RingRgb = rgb,
+                RingStyle = style,
+                Band = ProjectColor.For(key.Project ?? ""),
+            };
+            cached = Convert.ToBase64String(FacePng.Draw(spec));
+            Faces[cacheKey] = cached;
         }
         return cached;
     }
@@ -210,6 +238,19 @@ static class Deck
     private static string KeyFace(Key key, double x, double y, double scale, bool rounded = false)
     {
         var size = TileSize * scale;
+        if (key.Project is not null)
+        {
+            // A full 80x80 key face, drawn by the same FacePng.Draw() the
+            // device uses (tab, state ring and the project's own band
+            // colour), not approximated.
+            var facePixels = (int)Math.Round(size);
+            return $"""
+
+                  <g transform="translate({N(x)},{N(y)})">
+                    <image x="0" y="0" width="{facePixels}" height="{facePixels}" href="{DataUri(FaceImage(key))}"/>
+                  </g>
+                """;
+        }
         var ringPixels = (int)Math.Round(TileFaces.ImageSize * scale);
         var text = TileFaces.LabelText(key.Label).Trim('​', ' ');
         var plate = rounded
@@ -329,7 +370,7 @@ static class Deck
         {
             var tile = new SpaceTile(client, slot);
             tile.Update(snapshot);
-            return new Key(tile.Status, tile.Label);
+            return new Key(tile.Status, tile.Label, tile.Face.Tab, tile.Face.Project);
         }).ToArray();
     }
 

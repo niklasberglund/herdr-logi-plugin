@@ -30,6 +30,15 @@ public sealed record Agent
     public string Kind { get; init; } = "";
     public string AgentStatus { get; init; } = Herdr.AgentStatus.Unknown;
     public string TerminalTitleStripped { get; init; } = "";
+    public string? TabId { get; init; }
+}
+
+// A tab's membership, used only to compute its 1-based position within its
+// workspace's tabs.
+public sealed record TabRef
+{
+    public string TabId { get; init; } = "";
+    public string WorkspaceId { get; init; } = "";
 }
 
 public sealed record Pane
@@ -51,6 +60,8 @@ public sealed record Snapshot
     public IReadOnlyList<Agent> Agents { get; init; } = [];
     public IReadOnlyList<Agent> Recent { get; init; } = [];
     public IReadOnlyDictionary<string, Layout> Layouts { get; init; } = new Dictionary<string, Layout>();
+    // tab_id -> 1-based position of the tab among its workspace's tabs (snapshot order).
+    public IReadOnlyDictionary<string, int> Tabs { get; init; } = new Dictionary<string, int>();
 
     public static readonly Snapshot Empty = new();
 }
@@ -64,4 +75,5 @@ internal sealed record RawSnapshot
     public List<Workspace> Workspaces { get; init; } = [];
     public List<Agent> Agents { get; init; } = [];
     public List<Layout> Layouts { get; init; } = [];
+    public List<TabRef>? Tabs { get; init; }
 }

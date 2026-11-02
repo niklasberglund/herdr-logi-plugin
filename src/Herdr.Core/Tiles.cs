@@ -8,6 +8,23 @@ public static class TileStatus
     public const string Offline = "offline";
 }
 
+// The key face's data: the ring is driven by Tile.Status; this carries the
+// main number (workspace number), the tab-position superscript, the project
+// name (drawn in the band) and the session (service text).
+public readonly record struct Face
+{
+    public int? Tab { get; init; }
+    public int? TabNumber { get; init; }
+    public string Project { get; init; } = "";
+    public string Session { get; init; } = "";
+
+    public Face()
+    {
+    }
+
+    public static Face Empty(int? tab = null) => new() { Tab = tab };
+}
+
 public abstract class Tile
 {
     public const int SlotCount = 9;
@@ -36,6 +53,7 @@ public abstract class Tile
     public string GroupName { get; }
     public string Status { get; set; } = TileStatus.None;
     public string Label { get; set; }
+    public Face Face { get; set; } = new();
     // Shown while nothing occupies the slot. Options+ reserves the label row
     // either way, so a blank label leaves the ring looking too high on the key.
     public string Placeholder { get; }
@@ -45,9 +63,19 @@ public abstract class Tile
     // Null when nothing occupies the slot, so the press does nothing.
     public abstract Task? Press();
 
-    // Most tiles show a status ring (TileFaces.ImageFor); NewTabTile overrides
-    // this to show the same tab+plus face regardless of status.
-    public virtual byte[] Image => TileFaces.ImageFor(Status);
+    // Most tiles show a composite key face (TileFaces.FaceFor: ring, number,
+    // superscript and project band); NewTabTile overrides this to show the
+    // same tab+plus face regardless of status.
+    public virtual byte[] Image => TileFaces.FaceFor(this);
+
+    // The service text under the key: the session line only (the project name
+    // is drawn in the image band). NewTabTile overrides this to keep showing
+    // its workspace-name label.
+    public virtual string ServiceText => TileFaces.ServiceText(Face.Session);
+
+    /// <summary>Changes whenever the drawn key face (ring, number or band) would change.</summary>
+    public string FaceKey => string.Join(
+        "\u0001", Status, Face.Tab?.ToString() ?? "", Face.TabNumber?.ToString() ?? "", Face.Project, Face.Session);
 
     protected static async Task Enqueue(Func<Task> task)
     {
@@ -69,6 +97,32 @@ public abstract class Tile
         var tens = (v - 20) % 10;
         return n + (tens is > 0 and < 4 ? suffixes[tens] : v < 4 ? suffixes[v] : suffixes[0]);
     }
+
+    /// <summary>
+    /// The agent a Space key shows as its session: the workspace's agent that
+    /// is most recent in `recent` (matched by pane id), else the first in
+    /// `agents`.
+    /// </summary>
+    public static Agent? SessionAgentFor(string workspaceId, IReadOnlyList<Agent> agents, IReadOnlyList<Agent> recent)
+    {
+        var candidates = agents.Where(a => a.WorkspaceId == workspaceId).ToList();
+        Agent? best = null;
+        var bestRank = int.MaxValue;
+        foreach (var candidate in candidates)
+        {
+            var rank = recent.ToList().FindIndex(r => r.PaneId == candidate.PaneId);
+            if (rank != -1 && rank < bestRank)
+            {
+                best = candidate;
+                bestRank = rank;
+            }
+        }
+        return best ?? candidates.FirstOrDefault();
+    }
+
+    /// <summary>`{ TabNumber }` when the tab's position is known, else null (the face omits the superscript).</summary>
+    protected static int? TabNumberOf(IReadOnlyDictionary<string, int> tabs, string? tabId) =>
+        tabId is not null && tabs.TryGetValue(tabId, out var position) ? position : null;
 }
 
 public sealed class SpaceTile(HerdrClient client, int slot) : Tile(
@@ -86,6 +140,15 @@ public sealed class SpaceTile(HerdrClient client, int slot) : Tile(
         workspaceId = workspace?.WorkspaceId;
         Status = workspace?.AgentStatus ?? TileStatus.None;
         Label = string.IsNullOrEmpty(workspace?.Label) ? Placeholder : workspace.Label;
+        Face = workspace is null
+            ? Face.Empty(Slot)
+            : new Face
+            {
+                Tab = workspace.Number,
+                TabNumber = TabNumberOf(snapshot.Tabs, workspace.ActiveTabId),
+                Project = workspace.Label,
+                Session = SessionAgentFor(workspace.WorkspaceId, snapshot.Agents, snapshot.Recent)?.TerminalTitleStripped ?? "",
+            };
     }
 
     public override Task? Press()
@@ -114,14 +177,27 @@ public class AgentTile : Tile
     {
     }
 
-    public override void Update(Snapshot snapshot) => Apply(snapshot.Agents);
+    public override void Update(Snapshot snapshot) => Apply(snapshot, snapshot.Agents);
 
-    protected void Apply(IReadOnlyList<Agent> agents)
+    protected void Apply(Snapshot snapshot, IReadOnlyList<Agent> agents)
     {
         var agent = Slot <= agents.Count ? agents[Slot - 1] : null;
         paneId = agent?.PaneId;
         Status = agent?.AgentStatus ?? TileStatus.None;
         Label = string.IsNullOrEmpty(agent?.TerminalTitleStripped) ? Placeholder : agent.TerminalTitleStripped;
+        if (agent is null)
+        {
+            Face = Face.Empty(Slot);
+            return;
+        }
+        var workspace = snapshot.Workspaces.Values.FirstOrDefault(w => w.WorkspaceId == agent.WorkspaceId);
+        Face = new Face
+        {
+            Tab = workspace?.Number,
+            TabNumber = TabNumberOf(snapshot.Tabs, agent.TabId),
+            Project = workspace?.Label ?? "",
+            Session = agent.TerminalTitleStripped,
+        };
     }
 
     public override Task? Press()
@@ -141,7 +217,7 @@ public sealed class RecentAgentTile : AgentTile
         DisplayName = $"Recent Agent {slot}";
     }
 
-    public override void Update(Snapshot snapshot) => Apply(snapshot.Recent);
+    public override void Update(Snapshot snapshot) => Apply(snapshot, snapshot.Recent);
 }
 
 // Opens a new, focused shell tab in the matching herdr workspace. The face
@@ -157,6 +233,8 @@ public sealed class NewTabTile : Tile
     }
 
     public override byte[] Image => TileFaces.TabImage;
+
+    public override string ServiceText => TileFaces.LabelText(Label);
 
     public override void Update(Snapshot snapshot)
     {

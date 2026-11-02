@@ -21,14 +21,15 @@ public sealed class TileBoard(HerdrClient client, IReadOnlyList<Tile> tiles, Act
         {
             try
             {
-                var (status, label) = (tile.Status, tile.Label);
+                var (faceKey, text) = (tile.FaceKey, tile.ServiceText);
                 tile.Update(snapshot ?? Snapshot.Empty);
                 if (snapshot is null)
                 {
                     tile.Status = TileStatus.Offline;
                     tile.Label = "offline";
+                    tile.Face = new Face();
                 }
-                if (status != tile.Status || label != tile.Label) changed(tile);
+                if (faceKey != tile.FaceKey || text != tile.ServiceText) changed(tile);
             }
             catch (Exception e)
             {

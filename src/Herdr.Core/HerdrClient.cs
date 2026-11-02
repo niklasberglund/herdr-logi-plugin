@@ -102,6 +102,14 @@ public sealed class HerdrClient
             .ToList();
         var layouts = new Dictionary<string, Layout>();
         foreach (var l in snapshot.Layouts) layouts[l.TabId] = l;
+        var tabs = new Dictionary<string, int>();
+        var perWorkspace = new Dictionary<string, int>();
+        foreach (var t in snapshot.Tabs ?? [])
+        {
+            var position = perWorkspace.GetValueOrDefault(t.WorkspaceId) + 1;
+            perWorkspace[t.WorkspaceId] = position;
+            tabs[t.TabId] = position;
+        }
         return new Snapshot
         {
             FocusedWorkspaceId = snapshot.FocusedWorkspaceId,
@@ -109,6 +117,7 @@ public sealed class HerdrClient
             Agents = agents,
             Recent = recency.Rank(agents),
             Layouts = layouts,
+            Tabs = tabs,
         };
     }
 

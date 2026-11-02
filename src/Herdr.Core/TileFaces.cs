@@ -7,6 +7,9 @@ public static class TileFaces
 {
     public const int ImageSize = 80;
     private const int MaxLabelChars = 10;
+    // The project name is drawn in the image's band; the service text carries
+    // only the session line. Candidate maximum, to be confirmed on device.
+    private const int SessionTextMaxChars = 12;
 
     private static readonly Dictionary<string, (Rgb Rgb, RingStyle Style)> Styles = new()
     {
@@ -54,13 +57,68 @@ public static class TileFaces
     public const string Blank = "​";
 
     // Truncates by character (code point), not UTF-16 unit, so emoji survive.
-    public static string LabelText(string text)
+    public static string LabelText(string text, int maxChars = MaxLabelChars)
     {
         if (string.IsNullOrEmpty(text)) return Blank;
         var runes = text.EnumerateRunes().ToList();
-        if (runes.Count <= MaxLabelChars) return text;
+        if (runes.Count <= maxChars) return text;
         var builder = new StringBuilder();
-        foreach (var rune in runes.Take(MaxLabelChars - 1)) builder.Append(rune.ToString());
+        foreach (var rune in runes.Take(maxChars - 1)) builder.Append(rune.ToString());
         return builder.Append('…').ToString();
+    }
+
+    // Control characters (including CR/LF) become a space so a title cannot add lines.
+    public static string CleanLine(string text)
+    {
+        var builder = new StringBuilder(text.Length);
+        var lastWasControl = false;
+        foreach (var ch in text)
+        {
+            var isControl = ch is >= '\u0000' and <= '\u001f' or >= '\u007f' and <= '\u009f' or '\u2028' or '\u2029';
+            if (isControl)
+            {
+                if (!lastWasControl) builder.Append(' ');
+            }
+            else
+            {
+                builder.Append(ch);
+            }
+            lastWasControl = isControl;
+        }
+        return builder.ToString().Trim();
+    }
+
+    /// <summary>Service text for a key face: the session line only (the project is in the image band).</summary>
+    public static string ServiceText(string session)
+    {
+        var cleaned = CleanLine(session);
+        return cleaned.Length == 0 ? Blank : LabelText(cleaned, SessionTextMaxChars);
+    }
+
+    private static readonly ConcurrentDictionary<string, byte[]> FaceCache = new();
+    private const int FaceCacheMax = 256;
+
+    /// <summary>The key face (tab, project band and state ring) for a tile.</summary>
+    public static byte[] FaceFor(Tile tile)
+    {
+        var key = tile.FaceKey;
+        if (FaceCache.TryGetValue(key, out var cached)) return cached;
+        var (rgb, style) = StyleFor(tile.Status);
+        var face = tile.Face;
+        var spec = new FaceSpec
+        {
+            Tab = face.Tab,
+            TabNumber = face.Tab is null ? null : face.TabNumber,
+            Project = face.Project,
+            Session = face.Session,
+            RingRgb = rgb,
+            RingStyle = style,
+            Band = ProjectColor.For(face.Project),
+        };
+        var rendered = FacePng.Draw(spec);
+        // Bounded so rapidly changing titles cannot grow memory without limit.
+        if (FaceCache.Count >= FaceCacheMax) FaceCache.Clear();
+        FaceCache[key] = rendered;
+        return rendered;
     }
 }
