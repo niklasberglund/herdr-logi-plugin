@@ -4,6 +4,13 @@ namespace Herdr.Tests;
 
 public class NewTabTileTests
 {
+    // Stands in for `ps` and `open` so a press never launches or raises a real
+    // terminal app.
+    private sealed class NoOpTerminal : Terminal
+    {
+        protected override Task<string> RunAsync(string command, params string[] args) => Task.FromResult("");
+    }
+
     [Fact]
     public async Task PressCreatesAFocusedTabInTheMatchingWorkspace()
     {
@@ -31,7 +38,7 @@ public class NewTabTileTests
         // The tile can hit herdr for session.snapshot and tab.create on the
         // same socket, one connection per request, so run two fake servers
         // keyed by the request content instead of assuming a single roundtrip.
-        var tile = new NewTabTile(new HerdrClient(herdr.SocketPath), 2);
+        var tile = new NewTabTile(new HerdrClient(herdr.SocketPath, new NoOpTerminal()), 2);
         await tile.Press()!;
 
         Assert.Equal("tab.create", capturedMethod);
@@ -49,7 +56,7 @@ public class NewTabTileTests
             """.ReplaceLineEndings("") + "\n");
 
         using var log = new LogCapture();
-        var tile = new NewTabTile(new HerdrClient(herdr.SocketPath), 5);
+        var tile = new NewTabTile(new HerdrClient(herdr.SocketPath, new NoOpTerminal()), 5);
         await tile.Press()!;
 
         Assert.Contains(log.Errors, e => e.Contains("no workspace with number 5"));
