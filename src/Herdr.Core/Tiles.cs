@@ -174,7 +174,7 @@ public sealed class NewTabTile : Tile
     {
         try
         {
-            await Client.ActivateTerminalAsync();
+            await Client.ActivateTerminalAsync().WaitAsync(TimeSpan.FromSeconds(3));
         }
         catch (Exception e)
         {
