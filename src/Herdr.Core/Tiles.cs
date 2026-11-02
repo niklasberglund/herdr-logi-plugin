@@ -45,6 +45,10 @@ public abstract class Tile
     // Null when nothing occupies the slot, so the press does nothing.
     public abstract Task? Press();
 
+    // Most tiles show a status ring (TileFaces.ImageFor); NewTabTile overrides
+    // this to show the same tab+plus face regardless of status.
+    public virtual byte[] Image => TileFaces.ImageFor(Status);
+
     protected static async Task Enqueue(Func<Task> task)
     {
         await PressGate.WaitAsync();
@@ -138,4 +142,70 @@ public sealed class RecentAgentTile : AgentTile
     }
 
     public override void Update(Snapshot snapshot) => Apply(snapshot.Recent);
+}
+
+// Opens a new, focused shell tab in the matching herdr workspace. The face
+// always shows the tab+plus icon (TileFaces.TabImage), never a status ring,
+// and the label is the workspace name alone — no "+ tab" prefix, since the
+// icon already says "new tab" and a shorter label truncates less often.
+public sealed class NewTabTile : Tile
+{
+    public NewTabTile(HerdrClient client, int slot)
+        : base(client, "New", slot, $"Create a new shell tab in herdr workspace {slot}", "Tabs")
+    {
+        DisplayName = $"New Tab {slot}";
+    }
+
+    public override byte[] Image => TileFaces.TabImage;
+
+    public override void Update(Snapshot snapshot)
+    {
+        var workspace = snapshot.Workspaces.GetValueOrDefault(Slot);
+        Status = workspace is not null ? "idle" : TileStatus.None;
+        Label = string.IsNullOrEmpty(workspace?.Label) ? Placeholder : workspace.Label;
+    }
+
+    // Always enqueued: whether the workspace exists is checked against a
+    // fresh snapshot when the press runs, not against state cached at the
+    // last poll.
+    public override Task? Press() => Enqueue(() => RunAsync(Slot));
+
+    private async Task RunAsync(int targetSpace)
+    {
+        try
+        {
+            await Client.ActivateTerminalAsync().WaitAsync(TimeSpan.FromSeconds(3));
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"NewTabTile: terminal activation failed (continuing): {e.Message}");
+        }
+
+        Snapshot snapshot;
+        try
+        {
+            snapshot = await Client.GetSnapshotAsync();
+        }
+        catch (Exception e)
+        {
+            Log.Error($"NewTabTile: session.snapshot failed: {e.Message}");
+            return;
+        }
+
+        var workspace = snapshot.Workspaces.GetValueOrDefault(targetSpace);
+        if (workspace is null)
+        {
+            Log.Error($"NewTabTile: no workspace with number {targetSpace}");
+            return;
+        }
+
+        try
+        {
+            await Client.CreateTabAsync(workspace.WorkspaceId);
+        }
+        catch (Exception e)
+        {
+            Log.Error($"NewTabTile: tab.create failed: {e.Message}");
+        }
+    }
 }

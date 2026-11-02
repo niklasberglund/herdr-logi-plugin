@@ -27,6 +27,7 @@ public class HerdrPlugin : Plugin
             .. slots.Select(n => new SpaceTile(client, n)),
             .. slots.Select(n => new AgentTile(client, n)),
             .. slots.Select(n => new RecentAgentTile(client, n)),
+            .. slots.Select(n => new NewTabTile(client, n)),
         ];
         foreach (var tile in tiles)
         {

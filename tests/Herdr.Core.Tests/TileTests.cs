@@ -43,6 +43,11 @@ public class TileTests
         Assert.Equal("herdr_recent_1", recent.Name);
         Assert.Equal("Recent Agent 1", recent.DisplayName);
         Assert.Contains("1st most recently", recent.Description);
+        var newTab = new NewTabTile(Client, 4);
+        Assert.Equal("herdr_new_4", newTab.Name);
+        Assert.Equal("New Tab 4", newTab.DisplayName);
+        Assert.Equal("Tabs", newTab.GroupName);
+        Assert.Contains("workspace 4", newTab.Description);
     }
 
     [Fact]
@@ -63,6 +68,28 @@ public class TileTests
         Tile[] cleared = [space2, agent1, recent1];
         foreach (var tile in cleared) tile.Update(Snapshot.Empty);
         Assert.Equal([("none", "Space 2"), ("none", "Agent 1"), ("none", "Recent 1")], cleared.Select(t => (t.Status, t.Label)));
+    }
+
+    [Fact]
+    public void ANewTabTileShowsTheWorkspaceNameAloneAndNoPrefix()
+    {
+        var newTab1 = new NewTabTile(Client, 1);
+        var newTab2 = new NewTabTile(Client, 2);
+        newTab1.Update(Snapshot);
+        newTab2.Update(Snapshot);
+        Assert.Equal(("none", "New 1"), (newTab1.Status, newTab1.Label));
+        Assert.Equal(("idle", "api"), (newTab2.Status, newTab2.Label));
+        Assert.DoesNotContain("+ tab", newTab2.Label);
+    }
+
+    [Fact]
+    public void ANewTabTileAlwaysShowsTheTabIconRegardlessOfStatus()
+    {
+        var newTab = new NewTabTile(Client, 1);
+        var beforeUpdate = newTab.Image;
+        newTab.Update(Snapshot);
+        Assert.Same(TileFaces.TabImage, beforeUpdate);
+        Assert.Same(TileFaces.TabImage, newTab.Image);
     }
 
     [Fact]

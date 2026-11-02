@@ -38,7 +38,7 @@ public sealed class TileCommand : PluginDynamicCommand
     }
 
     protected override BitmapImage GetCommandImage(string actionParameter, PluginImageSize imageSize) =>
-        BitmapImage.FromArray(TileFaces.ImageFor(this.tile.Status));
+        BitmapImage.FromArray(this.tile.Image);
 
     protected override string GetCommandDisplayName(string actionParameter, PluginImageSize imageSize) =>
         TileFaces.LabelText(this.tile.Label);

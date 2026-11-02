@@ -43,6 +43,12 @@ public static class TileFaces
         return RingPng.Circle(ImageSize, rgb, style);
     });
 
+    // The Tabs tile face: identical regardless of status (see NewTabTile), so
+    // it reads as "create a tab" rather than another status ring.
+    private static readonly Lazy<byte[]> TabImageLazy = new(() => TabIconPng.Draw(ImageSize));
+
+    public static byte[] TabImage => TabImageLazy.Value;
+
     // The Plugin Service falls back to the action's display name when the text is
     // empty or whitespace, so an unused slot answers with a zero-width space.
     public const string Blank = "​";

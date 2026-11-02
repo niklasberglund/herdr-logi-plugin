@@ -15,6 +15,9 @@ public sealed class HerdrClient
     // The herdr socket protocol this plugin was written and tested against (herdr 0.8.2).
     public const int TestedProtocol = 20;
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(3);
+    // tab.create spawns a shell and waits for it to report ready, which takes
+    // longer than the other requests.
+    private static readonly TimeSpan TabCreateTimeout = TimeSpan.FromSeconds(10);
 
     internal static readonly JsonSerializerOptions Json = new()
     {
@@ -35,22 +38,22 @@ public sealed class HerdrClient
     public string SocketPath { get; }
 
     // One request per connection: herdr answers with a single JSON line.
-    public async Task<JsonElement> RequestAsync(string method, object? parameters = null)
+    public async Task<JsonElement> RequestAsync(string method, object? parameters = null, TimeSpan? timeout = null)
     {
         var id = $"logi_{Interlocked.Increment(ref nextId)}";
-        using var timeout = new CancellationTokenSource(RequestTimeout);
+        using var cts = new CancellationTokenSource(timeout ?? RequestTimeout);
         using var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
         string? line;
         try
         {
-            await socket.ConnectAsync(new UnixDomainSocketEndPoint(SocketPath), timeout.Token);
+            await socket.ConnectAsync(new UnixDomainSocketEndPoint(SocketPath), cts.Token);
             await using var stream = new NetworkStream(socket, ownsSocket: false);
             var request = JsonSerializer.Serialize(new { id, method, @params = parameters ?? new { } }) + "\n";
-            await stream.WriteAsync(Encoding.UTF8.GetBytes(request), timeout.Token);
+            await stream.WriteAsync(Encoding.UTF8.GetBytes(request), cts.Token);
             // The reader decodes as a stream, so a multi-byte character split
             // across reads survives.
             using var reader = new StreamReader(stream, Encoding.UTF8);
-            line = await reader.ReadLineAsync(timeout.Token);
+            line = await reader.ReadLineAsync(cts.Token);
         }
         catch (OperationCanceledException)
         {
@@ -143,6 +146,13 @@ public sealed class HerdrClient
         _ = terminal.ActivateAsync();
         await RequestAsync("workspace.focus", new { workspace_id = workspaceId });
     }
+
+    // Exposed so a tile can raise the terminal itself before it does other
+    // async work (NewTabTile), instead of relying on a focus call to do it.
+    public Task ActivateTerminalAsync() => terminal.ActivateAsync();
+
+    public Task CreateTabAsync(string workspaceId) =>
+        RequestAsync("tab.create", new { workspace_id = workspaceId, focus = true }, TabCreateTimeout);
 
     public async Task FocusPaneAsync(string paneId)
     {

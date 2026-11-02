@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Tabs tiles (`New 1` to `New 9`): one press opens a new shell tab in the
+  matching herdr workspace and focuses it. Shown with a purple "tab + plus"
+  icon (not a status ring, so it can't be mistaken for an agent indicator)
+  and labelled with the workspace name alone.
+
 ## [0.2.0] - 2026-10-22
 
 ### Added
